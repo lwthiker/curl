@@ -74,7 +74,7 @@ if test "x$OPT_NSS" != xno; then
       # Without pkg-config, we'll kludge in some defaults
       AC_MSG_WARN([Using hard-wired libraries and compilation flags for NSS.])
       addld="-L$OPT_NSS/lib"
-      addlib="-lssl3 -lsmime3 -lnss3 -lplds4 -lplc4 -lnspr4"
+      addlib="-Wl,-Bstatic -Wl,--start-group -lssl -lnss_static -lpk11wrap_static -lcertdb -lcerthi -lsmime -lnsspki -lnssdev -lsoftokn_static -lfreebl_static -lsha-x86_c_lib -lgcm-aes-x86_c_lib -lhw-acc-crypto-avx -lhw-acc-crypto-avx2  -lnssutil -lnssb -lcryptohi -l:libplc4.a -l:libplds4.a -l:libnspr4.a -lsqlite -Wl,--end-group -Wl,-Bdynamic -pthread -ldl"
       addcflags="-I$OPT_NSS/include"
       version="unknown"
       nssprefix=$OPT_NSS
@@ -91,7 +91,7 @@ if test "x$OPT_NSS" != xno; then
     fi
 
     dnl The function SSL_VersionRangeSet() is needed to enable TLS > 1.0
-    AC_CHECK_LIB(nss3, SSL_VersionRangeSet,
+    AC_CHECK_LIB(nss_static, SSL_VersionRangeSet,
      [
      AC_DEFINE(USE_NSS, 1, [if NSS is enabled])
      AC_SUBST(USE_NSS, [1])

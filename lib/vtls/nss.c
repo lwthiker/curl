@@ -143,6 +143,7 @@ static const struct cipher_s cipherlist[] = {
   {"dhe_dss_3des_sha",           SSL_DHE_DSS_WITH_3DES_EDE_CBC_SHA},
   {"dhe_rsa_des_sha",            SSL_DHE_RSA_WITH_DES_CBC_SHA},
   {"dhe_dss_des_sha",            SSL_DHE_DSS_WITH_DES_CBC_SHA},
+  {"rsa_3des_ede_cbc_sha",       TLS_RSA_WITH_3DES_EDE_CBC_SHA},
   /* TLS 1.0: Exportable 56-bit Cipher Suites. */
   {"rsa_des_56_sha",             TLS_RSA_EXPORT1024_WITH_DES_CBC_SHA},
   {"rsa_rc4_56_sha",             TLS_RSA_EXPORT1024_WITH_RC4_56_SHA},
@@ -376,6 +377,95 @@ static SECStatus set_ciphers(struct Curl_easy *data, PRFileDesc *model,
   }
 
   return SECSuccess;
+}
+
+/* See nsSSLIOLayerSetOptions@nsNSSIOLayer.cpp, Firefox source code */
+const SSLNamedGroup named_groups[] = {
+  ssl_grp_ec_curve25519, ssl_grp_ec_secp256r1, ssl_grp_ec_secp384r1,
+  ssl_grp_ec_secp521r1,  ssl_grp_ffdhe_2048,   ssl_grp_ffdhe_3072};
+
+#define NUM_OF_NAMED_GROUPS sizeof(named_groups)/sizeof(named_groups[0])
+
+static SECStatus set_named_groups(PRFileDesc *model)
+{
+  /* This aligns TLS extension 10 (supported_groups) to what Firefox does. */
+  return SSL_NamedGroupConfig(model, named_groups, NUM_OF_NAMED_GROUPS);
+}
+
+static const SSLSignatureScheme signatures[] = {
+    ssl_sig_ecdsa_secp256r1_sha256, ssl_sig_ecdsa_secp384r1_sha384,
+    ssl_sig_ecdsa_secp521r1_sha512, ssl_sig_rsa_pss_sha256,
+    ssl_sig_rsa_pss_sha384,         ssl_sig_rsa_pss_sha512,
+    ssl_sig_rsa_pkcs1_sha256,       ssl_sig_rsa_pkcs1_sha384,
+    ssl_sig_rsa_pkcs1_sha512,       ssl_sig_ecdsa_sha1,
+    ssl_sig_rsa_pkcs1_sha1
+};
+
+#define NUM_OF_SIGNATURES sizeof(signatures)/sizeof(signatures[0])
+
+static SECStatus set_additional_key_shares(PRFileDesc *model)
+{
+  /* This aligns TLS extension 51 (key_share) to what Firefox does. */
+  return SSL_SendAdditionalKeyShares(model, 1);
+}
+
+static SECStatus set_signatures(PRFileDesc *model)
+{
+  /* Align TLS extension 13 (signature_algorithms) to what Firefox does. */
+  return SSL_SignatureSchemePrefSet(model, signatures, NUM_OF_SIGNATURES);
+}
+
+static SECStatus set_ssl_options(PRFileDesc *model)
+{
+  SECStatus s;
+
+  /* Enable TLS 1.3 compat mode. Firefox does this, as can be seen at
+   * nsSSLIOLayerSetOptions()@nsNSSIOLayer.cpp.
+   * This has the side effect of NSS faking a TLS session ID.
+   * See ssl3_CreateClientHelloPreamble()@ssl3con.c
+   */
+  s = SSL_OptionSet(model, SSL_ENABLE_TLS13_COMPAT_MODE, PR_TRUE);
+  if (s != SECSuccess) {
+      return s;
+  }
+
+  /* Firefox sets the following options. I don't know what they do. */
+  s = SSL_OptionSet(model, SSL_REQUIRE_SAFE_NEGOTIATION, false);
+  if (s != SECSuccess) {
+      return s;
+  }
+  s = SSL_OptionSet(model, SSL_ENABLE_EXTENDED_MASTER_SECRET, true);
+  if (s != SECSuccess) {
+      return s;
+  }
+  s = SSL_OptionSet(model, SSL_ENABLE_HELLO_DOWNGRADE_CHECK, true);
+  if (s != SECSuccess) {
+      return s;
+  }
+  s = SSL_OptionSet(model, SSL_ENABLE_0RTT_DATA, true);
+  if (s != SECSuccess) {
+      return s;
+  }
+
+  /* This adds TLS extension 34 to the Client Hello. */
+  s = SSL_OptionSet(model, SSL_ENABLE_DELEGATED_CREDENTIALS, true);
+  if (s != SECSuccess) {
+      return s;
+  }
+
+  /* This adds TLS extension 5 (status_request) to the Client Hello. */
+  s = SSL_OptionSet(model, SSL_ENABLE_OCSP_STAPLING, true);
+  if (s != SECSuccess) {
+      return s;
+  }
+
+  /* Remove TLS extension 18 (signed_certificate_timestamp) */
+  s = SSL_OptionSet(model, SSL_ENABLE_SIGNED_CERT_TIMESTAMPS, false);
+  if (s != SECSuccess) {
+      return s;
+  }
+
+  return SSL_OptionSet(model, SSL_HANDSHAKE_AS_CLIENT, true);
 }
 
 /*
@@ -1320,6 +1410,24 @@ static CURLcode nss_load_module(SECMODModule **pmod, const char *library,
 
   if(module)
     SECMOD_DestroyModule(module);
+
+  /* Patch for Ubuntu - add a "nss/" suffix to the library name */
+  config_string = aprintf("library=/usr/lib/x86_64-linux-gnu/nss/%s name=%s", library, name);
+  if(!config_string)
+    return CURLE_OUT_OF_MEMORY;
+
+  module = SECMOD_LoadUserModule(config_string, NULL, PR_FALSE);
+  free(config_string);
+
+  if(module && module->loaded) {
+    /* loaded successfully */
+    *pmod = module;
+    return CURLE_OK;
+  }
+
+  if(module)
+    SECMOD_DestroyModule(module);
+
   return CURLE_FAILED_INIT;
 }
 
@@ -1921,6 +2029,12 @@ static CURLcode nss_setup_connect(struct Curl_easy *data,
   if(SSL_OptionSet(model, SSL_NO_CACHE, ssl_no_cache) != SECSuccess)
     goto error;
 
+  if(SSL_SET_OPTION(primary.sessionid)) {
+    if(SSL_OptionSet(model, SSL_ENABLE_SESSION_TICKETS,
+                     PR_TRUE) != SECSuccess)
+      goto error;
+  }
+
   /* enable/disable the requested SSL version(s) */
   if(nss_init_sslver(&sslver, data, conn) != CURLE_OK)
     goto error;
@@ -1958,6 +2072,14 @@ static CURLcode nss_setup_connect(struct Curl_easy *data,
       result = CURLE_SSL_CIPHER;
       goto error;
     }
+  }
+
+  if (set_named_groups(model) != SECSuccess ||
+      set_additional_key_shares(model) != SECSuccess ||
+      set_signatures(model) != SECSuccess ||
+      set_ssl_options(model) != SECSuccess) {
+      result = CURLE_SSL_CIPHER;
+      goto error;
   }
 
   if(!SSL_CONN_CONFIG(verifypeer) && SSL_CONN_CONFIG(verifyhost))
@@ -2113,6 +2235,10 @@ static CURLcode nss_setup_connect(struct Curl_easy *data,
     int cur = 0;
     unsigned char protocols[128];
 
+    protocols[cur++] = ALPN_HTTP_1_1_LENGTH;
+    memcpy(&protocols[cur], ALPN_HTTP_1_1, ALPN_HTTP_1_1_LENGTH);
+    cur += ALPN_HTTP_1_1_LENGTH;
+
 #ifdef USE_HTTP2
     if(data->state.httpwant >= CURL_HTTP_VERSION_2
 #ifndef CURL_DISABLE_PROXY
@@ -2124,9 +2250,6 @@ static CURLcode nss_setup_connect(struct Curl_easy *data,
       cur += ALPN_H2_LENGTH;
     }
 #endif
-    protocols[cur++] = ALPN_HTTP_1_1_LENGTH;
-    memcpy(&protocols[cur], ALPN_HTTP_1_1, ALPN_HTTP_1_1_LENGTH);
-    cur += ALPN_HTTP_1_1_LENGTH;
 
     if(SSL_SetNextProtoNego(backend->handle, protocols, cur) != SECSuccess)
       goto error;

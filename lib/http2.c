@@ -1818,7 +1818,8 @@ static ssize_t http2_recv(struct Curl_easy *data, int sockindex,
 
 /* Index where :authority header field will appear in request header
    field list. */
-#define AUTHORITY_DST_IDX 3
+/* curl-impersonate: Put the ":authority" header in the second place. */
+#define AUTHORITY_DST_IDX 2
 
 /* USHRT_MAX is 65535 == 0xffff */
 #define HEADER_OVERFLOW(x) \
