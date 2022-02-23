@@ -2573,15 +2573,15 @@ if test X"$want_nghttp2" != Xno; then
 
   if test "$PKGCONFIG" != "no" ; then
     LIB_H2=`CURL_EXPORT_PCDIR([$want_nghttp2_path])
-      $PKGCONFIG --libs-only-l libnghttp2`
+      $PKGCONFIG --static --libs-only-l libnghttp2`
     AC_MSG_NOTICE([-l is $LIB_H2])
 
     CPP_H2=`CURL_EXPORT_PCDIR([$want_nghttp2_path]) dnl
-      $PKGCONFIG --cflags-only-I libnghttp2`
+      $PKGCONFIG --static --cflags-only-I libnghttp2`
     AC_MSG_NOTICE([-I is $CPP_H2])
 
     LD_H2=`CURL_EXPORT_PCDIR([$want_nghttp2_path])
-      $PKGCONFIG --libs-only-L libnghttp2`
+      $PKGCONFIG --static --libs-only-L libnghttp2`
     AC_MSG_NOTICE([-L is $LD_H2])
 
     LDFLAGS="$LDFLAGS $LD_H2"

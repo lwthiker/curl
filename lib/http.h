@@ -278,7 +278,8 @@ struct http_conn {
   struct h2settings settings;
 
   /* list of settings that will be sent */
-  nghttp2_settings_entry local_settings[3];
+  /* curl-impersonate: Align HTTP/2 settings to Chrome's */
+  nghttp2_settings_entry local_settings[5];
   size_t local_settings_num;
 #else
   int unused; /* prevent a compiler warning */

@@ -29,7 +29,8 @@
 
 /* value for MAX_CONCURRENT_STREAMS we use until we get an updated setting
    from the peer */
-#define DEFAULT_MAX_CONCURRENT_STREAMS 100
+/* curl-impersonate: Use 1000 concurrent streams like Chrome. */
+#define DEFAULT_MAX_CONCURRENT_STREAMS 1000
 
 /*
  * Store nghttp2 version info in this buffer.

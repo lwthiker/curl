@@ -393,7 +393,8 @@ struct Curl_multi *Curl_multi_handle(int hashsize, /* socket hash */
 
   /* -1 means it not set by user, use the default value */
   multi->maxconnects = -1;
-  multi->max_concurrent_streams = 100;
+  /* curl-impersonate: Use 1000 concurrent streams like Chrome. */
+  multi->max_concurrent_streams = 1000;
   multi->ipv6_works = Curl_ipv6works(NULL);
 
 #ifdef USE_WINSOCK

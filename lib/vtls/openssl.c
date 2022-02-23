@@ -76,6 +76,8 @@
 #include <openssl/buffer.h>
 #include <openssl/pkcs12.h>
 
+#include <brotli/decode.h>
+
 #ifdef USE_AMISSL
 #include "amigaos.h"
 #endif
@@ -2629,6 +2631,31 @@ static CURLcode load_cacert_from_memory(SSL_CTX *ctx,
   return (count > 0 ? CURLE_OK : CURLE_SSL_CACERT_BADFILE);
 }
 
+/* Taken from Chromium and adapted to C,
+ * see net/ssl/cert_compression.cc
+ */
+int DecompressBrotliCert(SSL* ssl,
+                         CRYPTO_BUFFER** out,
+                         size_t uncompressed_len,
+                         const uint8_t* in,
+                         size_t in_len) {
+  uint8_t* data;
+  CRYPTO_BUFFER* decompressed = CRYPTO_BUFFER_alloc(&data, uncompressed_len);
+  if (!decompressed) {
+    return 0;
+  }
+
+  size_t output_size = uncompressed_len;
+  if (BrotliDecoderDecompress(in_len, in, &output_size, data) !=
+          BROTLI_DECODER_RESULT_SUCCESS ||
+      output_size != uncompressed_len) {
+    return 0;
+  }
+
+  *out = decompressed;
+  return 1;
+}
+
 static CURLcode ossl_connect_step1(struct Curl_easy *data,
                                    struct connectdata *conn, int sockindex)
 {
@@ -2767,7 +2794,10 @@ static CURLcode ossl_connect_step1(struct Curl_easy *data,
   ctx_options = SSL_OP_ALL;
 
 #ifdef SSL_OP_NO_TICKET
-  ctx_options |= SSL_OP_NO_TICKET;
+  /* curl-impersonate patch.
+   * Turn off SSL_OP_NO_TICKET, we want TLS extension 35 (session_ticket)
+   * to be sent. */
+  ctx_options &= ~SSL_OP_NO_TICKET;
 #endif
 
 #ifdef SSL_OP_NO_COMPRESSION
@@ -2821,8 +2851,11 @@ static CURLcode ossl_connect_step1(struct Curl_easy *data,
   SSL_CTX_set_options(backend->ctx, ctx_options);
 
 #ifdef HAS_NPN
+  /* curl-impersonate: Do not enable the NPN extension. */
+  /*
   if(conn->bits.tls_enable_npn)
     SSL_CTX_set_next_proto_select_cb(backend->ctx, select_next_proto_cb, data);
+  */
 #endif
 
 #ifdef HAS_ALPN
@@ -2937,6 +2970,19 @@ static CURLcode ossl_connect_step1(struct Curl_easy *data,
   }
 #endif
 
+  /* curl-impersonate:
+   * Configure BoringSSL to behave like Chrome. 
+   * See Constructor of SSLContext at net/socket/ssl_client_socket_impl.cc
+   * and SSLClientSocketImpl::Init()
+   * in the Chromium's source code. */
+
+  /* Enable TLS GREASE. */
+  SSL_CTX_set_grease_enabled(backend->ctx, 1);
+
+  /* Add support for TLS extension 27 - compress_certificate.
+   * Add Brotli decompression. See Chromium net/ssl/cert_compression.cc */
+  SSL_CTX_add_cert_compression_alg(backend->ctx,
+          TLSEXT_cert_compression_brotli, NULL, DecompressBrotliCert);
 
 #if defined(USE_WIN32_CRYPTO)
   /* Import certificates from the Windows root certificate store if requested.
@@ -3235,6 +3281,41 @@ static CURLcode ossl_connect_step1(struct Curl_easy *data,
 #endif
 
   SSL_set_connect_state(backend->handle);
+
+#ifdef USE_HTTP2
+  /* curl-impersonate: This adds the ALPS extension (17513).
+   * Chromium calls this function as well in SSLClientSocketImpl::Init().
+   * The 4th parameter is called "settings", and I don't know what it
+   * should contain. For now, use an empty string. */
+  SSL_add_application_settings(backend->handle, "h2", 2, NULL, 0);
+#endif
+
+  SSL_set_options(backend->handle,
+      SSL_OP_LEGACY_SERVER_CONNECT);
+  SSL_set_mode(backend->handle,
+      SSL_MODE_CBC_RECORD_SPLITTING | SSL_MODE_ENABLE_FALSE_START);
+
+  /* curl-impersonate: Enable TLS extensions 5 - status_request and
+   * 18 - signed_certificate_timestamp. */
+  SSL_enable_signed_cert_timestamps(backend->handle);
+  SSL_enable_ocsp_stapling(backend->handle);
+
+  /* curl-impersonate: Some SSL settings copied over from Chrome. */
+  SSL_set_shed_handshake_config(backend->handle, 1);
+
+  /* curl-impersonate: Set the signature algorithms.
+   * (TLS extension 13).
+   * See net/socket/ssl_client_socket_impl.cc in Chromium's source. */
+  static const uint16_t kVerifyPrefs[] = {
+    SSL_SIGN_ECDSA_SECP256R1_SHA256, SSL_SIGN_RSA_PSS_RSAE_SHA256,
+    SSL_SIGN_RSA_PKCS1_SHA256,       SSL_SIGN_ECDSA_SECP384R1_SHA384,
+    SSL_SIGN_RSA_PSS_RSAE_SHA384,    SSL_SIGN_RSA_PKCS1_SHA384,
+    SSL_SIGN_RSA_PSS_RSAE_SHA512,    SSL_SIGN_RSA_PKCS1_SHA512,
+  };
+  if (!SSL_set_verify_algorithm_prefs(backend->handle, kVerifyPrefs,
+              sizeof(kVerifyPrefs) / sizeof(kVerifyPrefs[0]))) {
+    return CURLE_SSL_CIPHER;
+  }
 
   backend->server_cert = 0x0;
 #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME

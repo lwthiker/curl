@@ -41,6 +41,7 @@
 #include "curl_printf.h"
 #include "curl_memory.h"
 #include "memdebug.h"
+#include "rand.h"
 
 #define H2_BUFSIZE 32768
 
@@ -1193,16 +1194,27 @@ static void populate_settings(struct Curl_easy *data,
 {
   nghttp2_settings_entry *iv = httpc->local_settings;
 
-  iv[0].settings_id = NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS;
-  iv[0].value = Curl_multi_max_concurrent_streams(data->multi);
+  /* curl-impersonate: Align HTTP/2 settings to Chrome's */
+  iv[0].settings_id = NGHTTP2_SETTINGS_HEADER_TABLE_SIZE;
+  iv[0].value = 0x10000;
 
-  iv[1].settings_id = NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE;
-  iv[1].value = HTTP2_HUGE_WINDOW_SIZE;
+  iv[1].settings_id = NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS;
+  iv[1].value = Curl_multi_max_concurrent_streams(data->multi);
 
-  iv[2].settings_id = NGHTTP2_SETTINGS_ENABLE_PUSH;
-  iv[2].value = data->multi->push_cb != NULL;
+  iv[2].settings_id = NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE;
+  iv[2].value = 0x600000;
 
-  httpc->local_settings_num = 3;
+  iv[3].settings_id = NGHTTP2_SETTINGS_MAX_HEADER_LIST_SIZE;
+  iv[3].value = 0x40000;
+
+  // iv[2].settings_id = NGHTTP2_SETTINGS_ENABLE_PUSH;
+  // iv[2].value = data->multi->push_cb != NULL;
+  
+  // Looks like random setting set by Chrome, maybe similar to TLS GREASE. */
+  Curl_rand(data, (unsigned char *)&iv[4].settings_id, sizeof(iv[4].settings_id));
+  Curl_rand(data, (unsigned char *)&iv[4].value, sizeof(iv[4].value));
+
+  httpc->local_settings_num = 5;
 }
 
 void Curl_http2_done(struct Curl_easy *data, bool premature)
@@ -1818,7 +1830,8 @@ static ssize_t http2_recv(struct Curl_easy *data, int sockindex,
 
 /* Index where :authority header field will appear in request header
    field list. */
-#define AUTHORITY_DST_IDX 3
+/* curl-impersonate: Put the ":authority" header in the first place. */
+#define AUTHORITY_DST_IDX 1
 
 /* USHRT_MAX is 65535 == 0xffff */
 #define HEADER_OVERFLOW(x) \
@@ -2032,25 +2045,26 @@ static ssize_t http2_send(struct Curl_easy *data, int sockindex,
   }
   if(!end || end == hdbuf)
     goto fail;
-  nva[1].name = (unsigned char *)":path";
-  nva[1].namelen = strlen((char *)nva[1].name);
-  nva[1].value = (unsigned char *)hdbuf;
-  nva[1].valuelen = (size_t)(end - hdbuf);
-  nva[1].flags = NGHTTP2_NV_FLAG_NONE;
-  if(HEADER_OVERFLOW(nva[1])) {
+  /* curl-impersonate: Switch the places of ":path" and ":scheme". */
+  nva[2].name = (unsigned char *)":path";
+  nva[2].namelen = strlen((char *)nva[2].name);
+  nva[2].value = (unsigned char *)hdbuf;
+  nva[2].valuelen = (size_t)(end - hdbuf);
+  nva[2].flags = NGHTTP2_NV_FLAG_NONE;
+  if(HEADER_OVERFLOW(nva[2])) {
     failf(data, "Failed sending HTTP request: Header overflow");
     goto fail;
   }
 
-  nva[2].name = (unsigned char *)":scheme";
-  nva[2].namelen = strlen((char *)nva[2].name);
+  nva[1].name = (unsigned char *)":scheme";
+  nva[1].namelen = strlen((char *)nva[1].name);
   if(conn->handler->flags & PROTOPT_SSL)
-    nva[2].value = (unsigned char *)"https";
+    nva[1].value = (unsigned char *)"https";
   else
-    nva[2].value = (unsigned char *)"http";
-  nva[2].valuelen = strlen((char *)nva[2].value);
-  nva[2].flags = NGHTTP2_NV_FLAG_NONE;
-  if(HEADER_OVERFLOW(nva[2])) {
+    nva[1].value = (unsigned char *)"http";
+  nva[1].valuelen = strlen((char *)nva[1].value);
+  nva[1].flags = NGHTTP2_NV_FLAG_NONE;
+  if(HEADER_OVERFLOW(nva[1])) {
     failf(data, "Failed sending HTTP request: Header overflow");
     goto fail;
   }
