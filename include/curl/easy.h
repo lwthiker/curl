@@ -42,6 +42,15 @@ CURL_EXTERN CURLcode curl_easy_perform(CURL *curl);
 CURL_EXTERN void curl_easy_cleanup(CURL *curl);
 
 /*
+ * curl-impersonate: Tell libcurl to impersonate a browser.
+ * This is a wrapper function that calls curl_easy_setopt()
+ * multiple times with all the parameters required. That's also why it was
+ * created as a separate API function and not just as another option to
+ * curl_easy_setopt().
+ */
+CURL_EXTERN CURLcode curl_easy_impersonate(CURL *curl, const char *target);
+
+/*
  * NAME curl_easy_getinfo()
  *
  * DESCRIPTION

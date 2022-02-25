@@ -2135,6 +2135,10 @@ typedef enum {
   /* Set MIME option flags. */
   CURLOPT(CURLOPT_MIME_OPTIONS, CURLOPTTYPE_LONG, 315),
 
+  /* curl-impersonate: A list of headers used by the impersonated browser.
+   * If given, merged with CURLOPT_HTTPHEADER. */
+  CURLOPT(CURLOPT_HTTPBASEHEADER, CURLOPTTYPE_SLISTPOINT, 316),
+
   CURLOPT_LASTENTRY /* the last unused */
 } CURLoption;
 

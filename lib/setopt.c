@@ -48,6 +48,7 @@
 #include "multiif.h"
 #include "altsvc.h"
 #include "hsts.h"
+#include "slist.h"
 
 /* The last 3 #include files should be in this order */
 #include "curl_printf.h"
@@ -686,6 +687,23 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
      */
     result = Curl_setstropt(&data->set.str[STRING_USERAGENT],
                             va_arg(param, char *));
+    break;
+
+  case CURLOPT_HTTPBASEHEADER:
+    /*
+     * curl-impersonate:
+     * Set a list of "base" headers. These will be merged with any headers
+     * set by CURLOPT_HTTPHEADER. curl-impersonate uses this option in order
+     * to set a list of default browser headers.
+     *
+     * Unlike CURLOPT_HTTPHEADER,
+     * the list is copied and can be immediately freed by the user.
+     */
+    curl_slist_free_all(data->state.base_headers);
+    data->state.base_headers = \
+      Curl_slist_duplicate(va_arg(param, struct curl_slist *));
+    if (!data->state.base_headers)
+      result = CURLE_OUT_OF_MEMORY;
     break;
 
   case CURLOPT_HTTPHEADER:

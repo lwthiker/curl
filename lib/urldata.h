@@ -1421,6 +1421,19 @@ struct UrlState {
   CURLcode hresult; /* used to pass return codes back from hyper callbacks */
 #endif
 
+  /*
+   * curl-impersonate:
+   * List of "base" headers set by CURLOPT_HTTPBASEHEADER.
+   */
+  struct curl_slist *base_headers;
+  /*
+   * curl-impersonate:
+   * Dynamically-constructed list of HTTP headers.
+   * This list is a merge of the default HTTP headers needed to impersonate a
+   * browser, together with any user-supplied headers.
+   */
+  struct curl_slist *merged_headers;
+
   /* Dynamically allocated strings, MUST be freed before this struct is
      killed. */
   struct dynamically_allocated_data {

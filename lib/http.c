@@ -84,6 +84,7 @@
 #include "altsvc.h"
 #include "hsts.h"
 #include "c-hyper.h"
+#include "slist.h"
 
 /* The last 3 #include files should be in this order */
 #include "curl_printf.h"
@@ -1795,6 +1796,15 @@ CURLcode Curl_add_custom_headers(struct Curl_easy *data,
   int numlists = 1; /* by default */
   int i;
 
+  /*
+   * curl-impersonate: Use the merged list of headers if it exists (i.e. when
+   * the CURLOPT_HTTPBASEHEADER option was set.
+   */
+  struct curl_slist *noproxyheaders =
+    (data->state.merged_headers ?
+     data->state.merged_headers :
+     data->set.headers);
+
 #ifndef CURL_DISABLE_PROXY
   enum proxy_use proxy;
 
@@ -1806,10 +1816,10 @@ CURLcode Curl_add_custom_headers(struct Curl_easy *data,
 
   switch(proxy) {
   case HEADER_SERVER:
-    h[0] = data->set.headers;
+    h[0] = noproxyheaders;
     break;
   case HEADER_PROXY:
-    h[0] = data->set.headers;
+    h[0] = noproxyheaders;
     if(data->set.sep_headers) {
       h[1] = data->set.proxyheaders;
       numlists++;
@@ -1819,12 +1829,12 @@ CURLcode Curl_add_custom_headers(struct Curl_easy *data,
     if(data->set.sep_headers)
       h[0] = data->set.proxyheaders;
     else
-      h[0] = data->set.headers;
+      h[0] = noproxyheaders;
     break;
   }
 #else
   (void)is_connect;
-  h[0] = data->set.headers;
+  h[0] = noproxyheaders;
 #endif
 
   /* loop through one or two lists */
@@ -2057,6 +2067,92 @@ void Curl_http_method(struct Curl_easy *data, struct connectdata *conn,
   }
   *method = request;
   *reqp = httpreq;
+}
+
+/*
+ * curl-impersonate:
+ * Create a new linked list of headers.
+ * The new list is a merge between the "base" headers and the application given
+ * headers. The "base" headers contain curl-impersonate's list of headers
+ * used by default by the impersonated browser.
+ *
+ * The application given headers will override the "base" headers if supplied.
+ */
+CURLcode Curl_http_merge_headers(struct Curl_easy *data)
+{
+  int i;
+  int ret;
+  struct curl_slist *head;
+  struct curl_slist *dup = NULL;
+  struct curl_slist *new_list = NULL;
+
+  if (!data->state.base_headers)
+    return CURLE_OK;
+
+  /* Duplicate the list for temporary use. */
+  if (data->set.headers) {
+    dup = Curl_slist_duplicate(data->set.headers);
+    if(!dup)
+      return CURLE_OUT_OF_MEMORY;
+  }
+
+  for(head = data->state.base_headers; head; head = head->next) {
+    char *sep;
+    size_t prefix_len;
+    bool found = FALSE;
+    struct curl_slist *head2;
+
+    sep = strchr(head->data, ':');
+    if(!sep)
+      continue;
+
+    prefix_len = sep - head->data;
+
+    /* Check if this header was added by the application. */
+    for(head2 = dup; head2; head2 = head2->next) {
+      if(head2->data &&
+         strncasecompare(head2->data, head->data, prefix_len) &&
+         Curl_headersep(head2->data[prefix_len]) ) {
+        new_list = curl_slist_append(new_list, head2->data);
+        /* Free and set to NULL to mark that it's been added. */
+        Curl_safefree(head2->data);
+        found = TRUE;
+        break;
+      }
+    }
+
+    if (!found) {
+      new_list = curl_slist_append(new_list, head->data);
+    }
+
+    if (!new_list) {
+      ret = CURLE_OUT_OF_MEMORY;
+      goto fail;
+    }
+  }
+
+  /* Now go over any additional application-supplied headers. */
+  for(head = dup; head; head = head->next) {
+    if(head->data) {
+      new_list = curl_slist_append(new_list, head->data);
+      if(!new_list) {
+        ret = CURLE_OUT_OF_MEMORY;
+        goto fail;
+      }
+    }
+  }
+
+  curl_slist_free_all(dup);
+  /* Save the new, merged list separately, so it can be freed later. */
+  curl_slist_free_all(data->state.merged_headers);
+  data->state.merged_headers = new_list;
+
+  return CURLE_OK;
+
+fail:
+  Curl_safefree(dup);
+  curl_slist_free_all(new_list);
+  return ret;
 }
 
 CURLcode Curl_http_useragent(struct Curl_easy *data)
@@ -3065,6 +3161,11 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
 
   result = Curl_http_host(data, conn);
   if(result)
+    return result;
+
+  /* curl-impersonate: Add HTTP headers to impersonate real browsers. */
+  result = Curl_http_merge_headers(data);
+  if (result)
     return result;
 
   result = Curl_http_useragent(data);

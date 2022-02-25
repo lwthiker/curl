@@ -102,7 +102,15 @@ char *Curl_checkheaders(const struct Curl_easy *data,
   DEBUGASSERT(thislen);
   DEBUGASSERT(thisheader[thislen-1] != ':');
 
-  for(head = data->set.headers; head; head = head->next) {
+  /*
+   * curl-impersonate:
+   * Check if we have overriden the user-supplied list of headers.
+   */
+  head = data->set.headers;
+  if (data->state.merged_headers)
+    head = data->state.merged_headers;
+
+  for(; head; head = head->next) {
     if(strncasecompare(head->data, thisheader, thislen) &&
        Curl_headersep(head->data[thislen]) )
       return head->data;
