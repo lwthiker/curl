@@ -165,6 +165,7 @@ struct OperationConfig {
   bool crlf;
   char *customrequest;
   char *ssl_ec_curves;
+  char *ssl_sig_hash_algs;
   char *krblevel;
   char *request_target;
   long httpversion;

@@ -2139,6 +2139,10 @@ typedef enum {
    * If given, merged with CURLOPT_HTTPHEADER. */
   CURLOPT(CURLOPT_HTTPBASEHEADER, CURLOPTTYPE_SLISTPOINT, 316),
 
+  /* curl-impersonate: A list of TLS signature hash algorithms.
+   * See https://datatracker.ietf.org/doc/html/rfc5246#section-7.4.1.4.1 */
+  CURLOPT(CURLOPT_SSL_SIG_HASH_ALGS, CURLOPTTYPE_STRINGPOINT, 317),
+
   CURLOPT_LASTENTRY /* the last unused */
 } CURLoption;
 

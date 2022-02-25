@@ -3813,6 +3813,7 @@ static CURLcode create_conn(struct Curl_easy *data,
   data->set.ssl.primary.cert_blob = data->set.blobs[BLOB_CERT];
   data->set.ssl.primary.ca_info_blob = data->set.blobs[BLOB_CAINFO];
   data->set.ssl.primary.curves = data->set.str[STRING_SSL_EC_CURVES];
+  data->set.ssl.primary.sig_hash_algs = data->set.str[STRING_SSL_SIG_HASH_ALGS];
 
 #ifndef CURL_DISABLE_PROXY
   data->set.proxy_ssl.primary.CApath = data->set.str[STRING_SSL_CAPATH_PROXY];
