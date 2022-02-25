@@ -469,6 +469,11 @@ CURLcode Curl_close(struct Curl_easy **datap)
   Curl_safefree(data->state.aptr.proxyuser);
   Curl_safefree(data->state.aptr.proxypasswd);
 
+  /* curl-impersonate: Free the list set by CURLOPT_HTTPBASEHEADER. */
+  curl_slist_free_all(data->state.base_headers);
+  /* curl-impersonate: Free the dynamic list of headers. */
+  curl_slist_free_all(data->state.merged_headers);
+
 #ifndef CURL_DISABLE_DOH
   if(data->req.doh) {
     Curl_dyn_free(&data->req.doh->probe[0].serverdoh);

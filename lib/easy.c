@@ -80,6 +80,7 @@
 #include "dynbuf.h"
 #include "altsvc.h"
 #include "hsts.h"
+#include "strcase.h"
 
 /* The last 3 #include files should be in this order */
 #include "curl_printf.h"
@@ -283,6 +284,162 @@ void curl_global_cleanup(void)
 }
 
 /*
+ * curl-impersonate: Options to be set for each supported target browser.
+ * Note: this does not include the HTTP headers, which are handled separately
+ * in Curl_http().
+ */
+#define IMPERSONATE_MAX_HEADERS 32
+static const struct impersonate_opts {
+  const char *target;
+  int httpversion;
+  int ssl_version;
+  const char *ciphers;
+  const char *http_headers[IMPERSONATE_MAX_HEADERS];
+  /* Other TLS options will come here in the future once they are
+   * configurable through curl_easy_setopt() */
+} impersonations[] = {
+  {
+    .target = "ff91esr",
+    .httpversion = CURL_HTTP_VERSION_2_0,
+    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
+    .ciphers =
+      "aes_128_gcm_sha_256,"
+      "chacha20_poly1305_sha_256,"
+      "aes_256_gcm_sha_384,"
+      "ecdhe_ecdsa_aes_128_gcm_sha_256,"
+      "ecdhe_rsa_aes_128_gcm_sha_256,"
+      "ecdhe_ecdsa_chacha20_poly1305_sha_256,"
+      "ecdhe_rsa_chacha20_poly1305_sha_256,"
+      "ecdhe_ecdsa_aes_256_gcm_sha_384,"
+      "ecdhe_rsa_aes_256_gcm_sha_384,"
+      "ecdhe_ecdsa_aes_256_sha,"
+      "ecdhe_ecdsa_aes_128_sha,"
+      "ecdhe_rsa_aes_128_sha,"
+      "ecdhe_rsa_aes_256_sha,"
+      "rsa_aes_128_gcm_sha_256,"
+      "rsa_aes_256_gcm_sha_384,"
+      "rsa_aes_128_sha,"
+      "rsa_aes_256_sha,"
+      "rsa_3des_ede_cbc_sha",
+    .http_headers = {
+      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:91.0) Gecko/20100101 Firefox/91.0",
+      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "Accept-Language: en-US,en;q=0.5",
+      "Accept-Encoding: gzip, deflate, br",
+      "Connection: keep-alive",
+      "Upgrade-Insecure-Requests: 1",
+      "Sec-Fetch-Dest: document",
+      "Sec-Fetch-Mode: navigate",
+      "Sec-Fetch-Site: none",
+      "Sec-Fetch-User: ?1"
+    }
+  },
+  {
+    .target = "ff95",
+    .httpversion = CURL_HTTP_VERSION_2_0,
+    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
+    .ciphers =
+      "aes_128_gcm_sha_256,"
+      "chacha20_poly1305_sha_256,"
+      "aes_256_gcm_sha_384,"
+      "ecdhe_ecdsa_aes_128_gcm_sha_256,"
+      "ecdhe_rsa_aes_128_gcm_sha_256,"
+      "ecdhe_ecdsa_chacha20_poly1305_sha_256,"
+      "ecdhe_rsa_chacha20_poly1305_sha_256,"
+      "ecdhe_ecdsa_aes_256_gcm_sha_384,"
+      "ecdhe_rsa_aes_256_gcm_sha_384,"
+      "ecdhe_ecdsa_aes_256_sha,"
+      "ecdhe_ecdsa_aes_128_sha,"
+      "ecdhe_rsa_aes_128_sha,"
+      "ecdhe_rsa_aes_256_sha,"
+      "rsa_aes_128_gcm_sha_256,"
+      "rsa_aes_256_gcm_sha_384,"
+      "rsa_aes_128_sha,"
+      "rsa_aes_256_sha",
+    .http_headers = {
+      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0",
+      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "Accept-Language: en-US,en;q=0.5",
+      "Accept-Encoding: gzip, deflate, br",
+      "Connection: keep-alive",
+      "Upgrade-Insecure-Requests: 1",
+      "Sec-Fetch-Dest: document",
+      "Sec-Fetch-Mode: navigate",
+      "Sec-Fetch-Site: none",
+      "Sec-Fetch-User: ?1"
+    }
+  }
+};
+
+#define NUM_IMPERSONATIONS \
+  sizeof(impersonations) / sizeof(impersonations[0])
+
+/*
+ * curl-impersonate:
+ * Call curl_easy_setopt() with all the needed options as defined in the
+ * 'impersonations' array.
+ * */
+CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target)
+{
+  int i;
+  int ret;
+  const struct impersonate_opts *opts = NULL;
+  struct curl_slist *headers = NULL;
+
+  for(i = 0; i < NUM_IMPERSONATIONS; i++) {
+    if (Curl_strncasecompare(target,
+                             impersonations[i].target,
+                             strlen(impersonations[i].target))) {
+      opts = &impersonations[i];
+      break;
+    }
+  }
+
+  if(!opts) {
+    DEBUGF(fprintf(stderr, "Error: unknown impersonation target '%s'\n",
+                   target));
+    return CURLE_BAD_FUNCTION_ARGUMENT;
+  }
+
+  if(opts->httpversion != CURL_HTTP_VERSION_NONE) {
+    ret = curl_easy_setopt(data, CURLOPT_HTTP_VERSION, opts->httpversion);
+    if(ret)
+      return ret;
+  }
+
+  if (opts->ssl_version != CURL_SSLVERSION_DEFAULT) {
+    ret = curl_easy_setopt(data, CURLOPT_SSLVERSION, opts->ssl_version);
+    if(ret)
+      return ret;
+  }
+
+  if(opts->ciphers) {
+    ret = curl_easy_setopt(data, CURLOPT_SSL_CIPHER_LIST, opts->ciphers);
+    if (ret)
+      return ret;
+  }
+
+  /* Build a linked list out of the static array of headers. */
+  for(i = 0; i < IMPERSONATE_MAX_HEADERS; i++) {
+    if(opts->http_headers[i]) {
+      headers = curl_slist_append(headers, opts->http_headers[i]);
+      if(!headers) {
+        return CURLE_OUT_OF_MEMORY;
+      }
+    }
+  }
+
+  if(headers) {
+    ret = curl_easy_setopt(data, CURLOPT_HTTPBASEHEADER, headers);
+    curl_slist_free_all(headers);
+    if(ret)
+      return ret;
+  }
+
+  return CURLE_OK;
+}
+
+/*
  * curl_easy_init() is the external interface to alloc, setup and init an
  * easy handle that is returned. If anything goes wrong, NULL is returned.
  */
@@ -290,6 +447,7 @@ struct Curl_easy *curl_easy_init(void)
 {
   CURLcode result;
   struct Curl_easy *data;
+  char *target;
 
   /* Make sure we inited the global SSL stuff */
   if(!initialized) {
@@ -306,6 +464,22 @@ struct Curl_easy *curl_easy_init(void)
   if(result) {
     DEBUGF(fprintf(stderr, "Error: Curl_open failed\n"));
     return NULL;
+  }
+
+  /*
+   * curl-impersonate: Hook into curl_easy_init() to set the required options
+   * from an environment variable.
+   * This is a bit hacky but allows seamless integration of libcurl-impersonate
+   * without code modifications to the app.
+   */
+  target = curl_getenv("CURL_IMPERSONATE");
+  if(target) {
+    result = curl_easy_impersonate(data, target);
+    free(target);
+    if(result) {
+      Curl_close(&data);
+      return NULL;
+    }
   }
 
   return data;
@@ -876,6 +1050,13 @@ struct Curl_easy *curl_easy_duphandle(struct Curl_easy *data)
     if(!outcurl->state.referer)
       goto fail;
     outcurl->state.referer_alloc = TRUE;
+  }
+
+  if(data->state.base_headers) {
+    outcurl->state.base_headers =
+      Curl_slist_duplicate(data->state.base_headers);
+    if(!outcurl->state.base_headers)
+      goto fail;
   }
 
   /* Reinitialize an SSL engine for the new handle
