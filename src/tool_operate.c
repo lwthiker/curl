@@ -2065,6 +2065,10 @@ static CURLcode single_transfer(struct GlobalConfig *global,
           my_setopt(curl, CURLOPT_SSL_ENABLE_ALPN, 0L);
         }
 
+        if(config->alps) {
+          my_setopt(curl, CURLOPT_SSL_ENABLE_ALPS, 1L);
+        }
+
         /* new in 7.40.0, abstract support added in 7.53.0 */
         if(config->unix_socket_path) {
           if(config->abstract_unix_socket) {

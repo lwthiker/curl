@@ -2143,6 +2143,12 @@ typedef enum {
    * See https://datatracker.ietf.org/doc/html/rfc5246#section-7.4.1.4.1 */
   CURLOPT(CURLOPT_SSL_SIG_HASH_ALGS, CURLOPTTYPE_STRINGPOINT, 317),
 
+  /* curl-impersonate: Whether to enable ALPS in TLS or not.
+   * See https://datatracker.ietf.org/doc/html/draft-vvv-tls-alps.
+   * Support for ALPS is minimal and is intended only for the TLS client
+   * hello to match. */
+  CURLOPT(CURLOPT_SSL_ENABLE_ALPS, CURLOPTTYPE_LONG, 318),
+
   CURLOPT_LASTENTRY /* the last unused */
 } CURLoption;
 

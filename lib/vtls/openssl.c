@@ -2958,11 +2958,8 @@ static CURLcode ossl_connect_step1(struct Curl_easy *data,
   SSL_CTX_set_options(backend->ctx, ctx_options);
 
 #ifdef HAS_NPN
-  /* curl-impersonate: Do not enable the NPN extension. */
-  /*
   if(conn->bits.tls_enable_npn)
     SSL_CTX_set_next_proto_select_cb(backend->ctx, select_next_proto_cb, data);
-  */
 #endif
 
 #ifdef HAS_ALPN
@@ -3418,12 +3415,18 @@ static CURLcode ossl_connect_step1(struct Curl_easy *data,
 
   SSL_set_connect_state(backend->handle);
 
-#ifdef USE_HTTP2
-  /* curl-impersonate: This adds the ALPS extension (17513).
-   * Chromium calls this function as well in SSLClientSocketImpl::Init().
-   * The 4th parameter is called "settings", and I don't know what it
-   * should contain. For now, use an empty string. */
-  SSL_add_application_settings(backend->handle, "h2", 2, NULL, 0);
+#if defined(HAS_ALPN) && defined(USE_HTTP2)
+  if(conn->bits.tls_enable_alpn &&
+     data->state.httpwant >= CURL_HTTP_VERSION_2 &&
+     conn->bits.tls_enable_alps) {
+    /* curl-impersonate: This adds the ALPS extension (17513).
+     * Chromium calls this function as well in SSLClientSocketImpl::Init().
+     * The 4th parameter is called "settings", and I don't know what it
+     * should contain. For now, use an empty string. */
+    SSL_add_application_settings(backend->handle, ALPN_H2, ALPN_H2_LENGTH,
+                                 NULL, 0);
+    infof(data, "ALPS, offering %s", ALPN_H2);
+  }
 #endif
 
   SSL_set_options(backend->handle,

@@ -3931,6 +3931,11 @@ static CURLcode create_conn(struct Curl_easy *data,
         conn->bits.tls_enable_alpn = TRUE;
       if(data->set.ssl_enable_npn)
         conn->bits.tls_enable_npn = TRUE;
+
+      /* curl-impersonatE: Turn on ALPS if ALPN is enabled and the bit is
+       * enabled. */
+      if(data->set.ssl_enable_alps)
+        conn->bits.tls_enable_alps = TRUE;
     }
 
     if(waitpipe)

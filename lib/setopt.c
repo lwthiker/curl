@@ -2898,6 +2898,9 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
   case CURLOPT_SSL_ENABLE_ALPN:
     data->set.ssl_enable_alpn = (0 != va_arg(param, long)) ? TRUE : FALSE;
     break;
+  case CURLOPT_SSL_ENABLE_ALPS:
+    data->set.ssl_enable_alps = (0 != va_arg(param, long)) ? TRUE : FALSE;
+    break;
 #ifdef USE_UNIX_SOCKETS
   case CURLOPT_UNIX_SOCKET_PATH:
     data->set.abstract_unix_socket = FALSE;

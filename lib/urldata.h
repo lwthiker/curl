@@ -518,6 +518,7 @@ struct ConnectBits {
   BIT(tcp_fastopen); /* use TCP Fast Open */
   BIT(tls_enable_npn);  /* TLS NPN extension? */
   BIT(tls_enable_alpn); /* TLS ALPN extension? */
+  BIT(tls_enable_alps); /* TLS ALPS extension? */
   BIT(connect_only);
 #ifndef CURL_DISABLE_DOH
   BIT(doh);
@@ -1864,6 +1865,7 @@ struct UserDefined {
   BIT(tcp_fastopen);   /* use TCP Fast Open */
   BIT(ssl_enable_npn); /* TLS NPN extension? */
   BIT(ssl_enable_alpn);/* TLS ALPN extension? */
+  BIT(ssl_enable_alps);/* TLS ALPS extension? */
   BIT(path_as_is);     /* allow dotdots? */
   BIT(pipewait);       /* wait for multiplex status before starting a new
                           connection */
