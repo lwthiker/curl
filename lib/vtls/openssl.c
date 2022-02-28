@@ -211,6 +211,10 @@
      !defined(OPENSSL_IS_BORINGSSL))
 #define HAVE_SSL_CTX_SET_CIPHERSUITES
 #define HAVE_SSL_CTX_SET_POST_HANDSHAKE_AUTH
+#endif
+
+#if ((OPENSSL_VERSION_NUMBER >= 0x10101000L) && \
+     !defined(LIBRESSL_VERSION_NUMBER))
 /* SET_EC_CURVES is available under the same preconditions: see
  * https://www.openssl.org/docs/manmaster/man3/SSL_CTX_set1_groups.html
  */
