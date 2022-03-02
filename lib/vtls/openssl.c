@@ -76,7 +76,12 @@
 #include <openssl/buffer.h>
 #include <openssl/pkcs12.h>
 
+#ifdef HAVE_ZLIB_H
+#include <zlib.h>
+#endif
+#ifdef HAVE_BROTLI
 #include <brotli/decode.h>
+#endif
 
 #ifdef USE_AMISSL
 #include "amigaos.h"
@@ -2742,6 +2747,49 @@ static CURLcode load_cacert_from_memory(SSL_CTX *ctx,
   return (count > 0 ? CURLE_OK : CURLE_SSL_CACERT_BADFILE);
 }
 
+#ifdef HAVE_LIBZ
+int DecompressZlibCert(SSL *ssl,
+                       CRYPTO_BUFFER** out,
+                       size_t uncompressed_len,
+                       const uint8_t* in,
+                       size_t in_len)
+{
+  z_stream strm;
+  uint8_t* data;
+  CRYPTO_BUFFER* decompressed = CRYPTO_BUFFER_alloc(&data, uncompressed_len);
+  if(!decompressed) {
+    return 0;
+  }
+
+  strm.zalloc = NULL;
+  strm.zfree = NULL;
+  strm.opaque = NULL;
+  strm.next_in = (Bytef *)in;
+  strm.avail_in = in_len;
+  strm.next_out = (Bytef *)data;
+  strm.avail_out = uncompressed_len;
+
+  if(inflateInit(&strm) != Z_OK) {
+    CRYPTO_BUFFER_free(decompressed);
+    return 0;
+  }
+
+  if(inflate(&strm, Z_FINISH) != Z_STREAM_END ||
+    strm.avail_in != 0 ||
+    strm.avail_out != 0) {
+    inflateEnd(&strm);
+    CRYPTO_BUFFER_free(decompressed);
+    return 0;
+  }
+
+  inflateEnd(&strm);
+  *out = decompressed;
+  return 1;
+}
+#endif
+
+#ifdef HAVE_BROTLI
+
 /* Taken from Chromium and adapted to C,
  * see net/ssl/cert_compression.cc
  */
@@ -2760,12 +2808,89 @@ int DecompressBrotliCert(SSL* ssl,
   if (BrotliDecoderDecompress(in_len, in, &output_size, data) !=
           BROTLI_DECODER_RESULT_SUCCESS ||
       output_size != uncompressed_len) {
+    CRYPTO_BUFFER_free(decompressed);
     return 0;
   }
 
   *out = decompressed;
   return 1;
 }
+#endif
+
+#if defined(HAVE_LIBZ) || defined(HAVE_BROTLI)
+static struct {
+  char *alg_name;
+  uint16_t alg_id;
+  ssl_cert_compression_func_t compress;
+  ssl_cert_decompression_func_t decompress;
+} cert_compress_algs[] = {
+#ifdef HAVE_LIBZ
+  {"zlib", TLSEXT_cert_compression_zlib, NULL, DecompressZlibCert},
+#endif
+#ifdef HAVE_BROTLI
+  {"brotli", TLSEXT_cert_compression_brotli, NULL, DecompressBrotliCert},
+#endif
+};
+
+#define NUM_CERT_COMPRESSION_ALGS \
+  sizeof(cert_compress_algs) / sizeof(cert_compress_algs[0])
+
+/*
+ * curl-impersonate:
+ * Add support for TLS extension 27 - compress_certificate.
+ * This calls the BoringSSL-specific API SSL_CTX_add_cert_compression_alg
+ * for each algorithm specified in cert_compression, which is a comma separated list.
+ */
+static CURLcode add_cert_compression(struct Curl_easy *data,
+                                     SSL_CTX *ctx,
+                                     const char *algorithms)
+{
+  int i;
+  const char *s = algorithms;
+  char *alg_name;
+  size_t alg_name_len;
+  bool found;
+
+  while (s && s[0]) {
+    found = FALSE;
+
+    for(i = 0; i < NUM_CERT_COMPRESSION_ALGS; i++) {
+      alg_name = cert_compress_algs[i].alg_name;
+      alg_name_len = strlen(alg_name);
+      if(strlen(s) >= alg_name_len &&
+         strncasecompare(s, alg_name, alg_name_len) &&
+         (s[alg_name_len] == ',' || s[alg_name_len] == 0)) {
+        if(!SSL_CTX_add_cert_compression_alg(ctx,
+                    cert_compress_algs[i].alg_id,
+                    cert_compress_algs[i].compress,
+                    cert_compress_algs[i].decompress)) {
+          failf(data, "Error adding certificate compression algorithm '%s'",
+                alg_name);
+          return CURLE_SSL_CIPHER;
+        }
+        s += alg_name_len;
+        if(*s == ',')
+          s += 1;
+        found = TRUE;
+        break;
+      }
+    }
+
+    if(!found) {
+      failf(data, "Invalid compression algorithm list");
+      return CURLE_BAD_FUNCTION_ARGUMENT;
+    }
+  }
+
+  return CURLE_OK;
+}
+#else
+static CURLcode add_cert_compression(SSL_CTX *ctx, const char *algorithms)
+{
+  /* No compression algorithms are available. */
+  return CURLE_BAD_FUNCTION_ARGUMENT;
+}
+#endif
 
 static CURLcode ossl_connect_step1(struct Curl_easy *data,
                                    struct connectdata *conn, int sockindex)
@@ -3116,10 +3241,11 @@ static CURLcode ossl_connect_step1(struct Curl_easy *data,
   /* Enable TLS GREASE. */
   SSL_CTX_set_grease_enabled(backend->ctx, 1);
 
-  /* Add support for TLS extension 27 - compress_certificate.
-   * Add Brotli decompression. See Chromium net/ssl/cert_compression.cc */
-  SSL_CTX_add_cert_compression_alg(backend->ctx,
-          TLSEXT_cert_compression_brotli, NULL, DecompressBrotliCert);
+  if(SSL_CONN_CONFIG(cert_compression) &&
+     add_cert_compression(data,
+                          backend->ctx,
+                          SSL_CONN_CONFIG(cert_compression)))
+    return CURLE_SSL_CIPHER;
 
 #if defined(USE_WIN32_CRYPTO)
   /* Import certificates from the Windows root certificate store if requested.

@@ -281,6 +281,7 @@ static const struct LongShort aliases[]= {
   {"EE", "curves",                   ARG_STRING},
   {"EG", "signature-hashes",         ARG_STRING},
   {"EH", "alps",                     ARG_BOOL},
+  {"EI", "cert-compression",         ARG_STRING},
   {"f",  "fail",                     ARG_BOOL},
   {"fa", "fail-early",               ARG_BOOL},
   {"fb", "styled-output",            ARG_BOOL},
@@ -1804,6 +1805,11 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
       case 'H':
         /* --alps */
         config->alps = toggle;
+        break;
+
+      case 'I':
+        /* --cert-compression */
+        GetStr(&config->ssl_cert_compression, nextarg);
         break;
 
       default: /* unknown flag */

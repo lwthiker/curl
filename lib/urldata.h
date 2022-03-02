@@ -258,6 +258,7 @@ struct ssl_primary_config {
   struct curl_blob *issuercert_blob;
   char *curves;          /* list of curves to use */
   char *sig_hash_algs;   /* List of signature hash algorithms to use */
+  char *cert_compression;  /* List of certificate compression algorithms. */
   BIT(verifypeer);       /* set TRUE if this is desired */
   BIT(verifyhost);       /* set TRUE if CN/SAN must match hostname */
   BIT(verifystatus);     /* set TRUE if certificate status must be checked */
@@ -1595,6 +1596,7 @@ enum dupstring {
   STRING_DNS_LOCAL_IP6,
   STRING_SSL_EC_CURVES,
   STRING_SSL_SIG_HASH_ALGS,
+  STRING_SSL_CERT_COMPRESSION,
 
   /* -- end of null-terminated strings -- */
 

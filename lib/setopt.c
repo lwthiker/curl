@@ -2376,6 +2376,18 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
     result = Curl_setstropt(&data->set.str[STRING_SSL_SIG_HASH_ALGS],
                             va_arg(param, char *));
     break;
+
+  case CURLOPT_SSL_CERT_COMPRESSION:
+    /*
+     * Set the list of ceritifcate compression algorithms we support in the TLS
+     * connection.
+     * Specify comma-delimited list of algorithms to use. Options are "zlib"
+     * and "brotli".
+     */
+    result = Curl_setstropt(&data->set.str[STRING_SSL_CERT_COMPRESSION],
+                            va_arg(param, char *));
+    break;
+
 #endif
   case CURLOPT_IPRESOLVE:
     arg = va_arg(param, long);

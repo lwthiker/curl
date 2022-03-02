@@ -300,6 +300,9 @@ static const struct impersonate_opts {
   bool alpn;
   /* Enable TLS ALPS extension. */
   bool alps;
+  /* TLS certificate compression algorithms.
+   * (TLS extension 27) */
+  const char *cert_compression;
   const char *http_headers[IMPERSONATE_MAX_HEADERS];
   /* Other TLS options will come here in the future once they are
    * configurable through curl_easy_setopt() */
@@ -327,6 +330,7 @@ static const struct impersonate_opts {
     .npn = false,
     .alpn = true,
     .alps = true,
+    .cert_compression = "brotli",
     .http_headers = {
       "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"98\", \"Google Chrome\";v=\"98\"",
       "sec-ch-ua-mobile: ?0",
@@ -365,6 +369,7 @@ static const struct impersonate_opts {
     .npn = false,
     .alpn = true,
     .alps = true,
+    .cert_compression = "brotli",
     .http_headers = {
       "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"98\", \"Microsoft Edge\";v=\"98\"",
       "sec-ch-ua-mobile: ?0",
@@ -441,6 +446,14 @@ CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target)
   ret = curl_easy_setopt(data, CURLOPT_SSL_ENABLE_ALPS, opts->alps ? 1 : 0);
   if(ret)
     return ret;
+
+  if(opts->cert_compression) {
+    ret = curl_easy_setopt(data,
+                           CURLOPT_SSL_CERT_COMPRESSION,
+                           opts->cert_compression);
+    if(ret)
+      return ret;
+  }
 
   /* Build a linked list out of the static array of headers. */
   for(i = 0; i < IMPERSONATE_MAX_HEADERS; i++) {

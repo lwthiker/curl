@@ -1524,6 +1524,10 @@ static CURLcode single_transfer(struct GlobalConfig *global,
           my_setopt_str(curl, CURLOPT_SSL_SIG_HASH_ALGS,
                         config->ssl_sig_hash_algs);
 
+        if(config->ssl_cert_compression)
+          my_setopt_str(curl, CURLOPT_SSL_CERT_COMPRESSION,
+                        config->ssl_cert_compression);
+
         if(curlinfo->features & CURL_VERSION_SSL) {
           /* Check if config->cert is a PKCS#11 URI and set the
            * config->cert_type if necessary */

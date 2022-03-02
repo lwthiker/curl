@@ -166,6 +166,7 @@ struct OperationConfig {
   char *customrequest;
   char *ssl_ec_curves;
   char *ssl_sig_hash_algs;
+  char *ssl_cert_compression;
   char *krblevel;
   char *request_target;
   long httpversion;

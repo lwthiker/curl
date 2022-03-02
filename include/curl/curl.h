@@ -2149,6 +2149,12 @@ typedef enum {
    * hello to match. */
   CURLOPT(CURLOPT_SSL_ENABLE_ALPS, CURLOPTTYPE_LONG, 318),
 
+  /* curl-impersonate: Comma-separated list of certificate compression
+   * algorithms to use. These are published in the client hello.
+   * Supported algorithms are "zlib" and "brotli".
+   * See https://datatracker.ietf.org/doc/html/rfc8879 */
+  CURLOPT(CURLOPT_SSL_CERT_COMPRESSION, CURLOPTTYPE_STRINGPOINT, 319),
+
   CURLOPT_LASTENTRY /* the last unused */
 } CURLoption;
 
