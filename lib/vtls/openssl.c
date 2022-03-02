@@ -259,6 +259,113 @@
 #define HAVE_OPENSSL_VERSION
 #endif
 
+#if defined(OPENSSL_IS_BORINGSSL)
+#define HAVE_SSL_CTX_SET_VERIFY_ALGORITHM_PREFS
+
+/*
+ * kMaxSignatureAlgorithmNameLen and kSignatureAlgorithmNames
+ * Taken from BoringSSL, see ssl/ssl_privkey.cc
+ * */
+static const size_t kMaxSignatureAlgorithmNameLen = 23;
+
+static const struct {
+  uint16_t signature_algorithm;
+  const char *name;
+} kSignatureAlgorithmNames[] = {
+    {SSL_SIGN_RSA_PKCS1_MD5_SHA1, "rsa_pkcs1_md5_sha1"},
+    {SSL_SIGN_RSA_PKCS1_SHA1, "rsa_pkcs1_sha1"},
+    {SSL_SIGN_RSA_PKCS1_SHA256, "rsa_pkcs1_sha256"},
+    {SSL_SIGN_RSA_PKCS1_SHA384, "rsa_pkcs1_sha384"},
+    {SSL_SIGN_RSA_PKCS1_SHA512, "rsa_pkcs1_sha512"},
+    {SSL_SIGN_ECDSA_SHA1, "ecdsa_sha1"},
+    {SSL_SIGN_ECDSA_SECP256R1_SHA256, "ecdsa_secp256r1_sha256"},
+    {SSL_SIGN_ECDSA_SECP384R1_SHA384, "ecdsa_secp384r1_sha384"},
+    {SSL_SIGN_ECDSA_SECP521R1_SHA512, "ecdsa_secp521r1_sha512"},
+    {SSL_SIGN_RSA_PSS_RSAE_SHA256, "rsa_pss_rsae_sha256"},
+    {SSL_SIGN_RSA_PSS_RSAE_SHA384, "rsa_pss_rsae_sha384"},
+    {SSL_SIGN_RSA_PSS_RSAE_SHA512, "rsa_pss_rsae_sha512"},
+    {SSL_SIGN_ED25519, "ed25519"},
+};
+
+#define MAX_SIG_ALGS \
+  sizeof(kSignatureAlgorithmNames) / sizeof(kSignatureAlgorithmNames[0])
+
+/* Default signature hash algorithms taken from Chrome/Chromium.
+ * See kVerifyPeers @ net/socket/ssl_client_socket_impl.cc */
+static const uint16_t default_sig_algs[] = {
+  SSL_SIGN_ECDSA_SECP256R1_SHA256, SSL_SIGN_RSA_PSS_RSAE_SHA256,
+  SSL_SIGN_RSA_PKCS1_SHA256,       SSL_SIGN_ECDSA_SECP384R1_SHA384,
+  SSL_SIGN_RSA_PSS_RSAE_SHA384,    SSL_SIGN_RSA_PKCS1_SHA384,
+  SSL_SIGN_RSA_PSS_RSAE_SHA512,    SSL_SIGN_RSA_PKCS1_SHA512,
+};
+
+#define DEFAULT_SIG_ALGS_LENGTH  \
+  sizeof(default_sig_algs) / sizeof(default_sig_algs[0])
+
+static CURLcode parse_sig_algs(struct Curl_easy *data,
+                               const char *sigalgs,
+                               uint16_t *algs,
+                               size_t *nalgs)
+{
+  *nalgs = 0;
+  while (sigalgs && sigalgs[0]) {
+    int i;
+    bool found = FALSE;
+    const char *end;
+    size_t len;
+    char algname[kMaxSignatureAlgorithmNameLen + 1];
+
+    end = strpbrk(sigalgs, ":,");
+    if (end)
+      len = end - sigalgs;
+    else
+      len = strlen(sigalgs);
+
+    if (len > kMaxSignatureAlgorithmNameLen) {
+      failf(data, "Bad signature hash algorithm list");
+      return CURLE_BAD_FUNCTION_ARGUMENT;
+    }
+
+    if (!len) {
+      ++sigalgs;
+      continue;
+    }
+
+    if (*nalgs == MAX_SIG_ALGS) {
+      /* Reached the maximum number of possible algorithms, but more data
+       * available in the list. */
+      failf(data, "Bad signature hash algorithm list");
+      return CURLE_BAD_FUNCTION_ARGUMENT;
+    }
+
+    memcpy(algname, sigalgs, len);
+    algname[len] = 0;
+
+    for (i = 0; i < MAX_SIG_ALGS; i++) {
+      if (strcasecompare(algname, kSignatureAlgorithmNames[i].name)) {
+        algs[*nalgs] = kSignatureAlgorithmNames[i].signature_algorithm;
+        (*nalgs)++;
+        found = TRUE;
+        break;
+      }
+    }
+
+    if (!found) {
+      failf(data, "Unknown signature hash algorithm: '%s'", algname);
+      return CURLE_BAD_FUNCTION_ARGUMENT;
+    }
+
+    if (end)
+      sigalgs = ++end;
+    else
+      break;
+  }
+
+  return CURLE_OK;
+}
+
+#endif
+
 struct ssl_backend_data {
   struct Curl_easy *logger; /* transfer handle to pass trace logs to, only
                                using sockindex 0 */
@@ -2855,11 +2962,8 @@ static CURLcode ossl_connect_step1(struct Curl_easy *data,
   SSL_CTX_set_options(backend->ctx, ctx_options);
 
 #ifdef HAS_NPN
-  /* curl-impersonate: Do not enable the NPN extension. */
-  /*
   if(conn->bits.tls_enable_npn)
     SSL_CTX_set_next_proto_select_cb(backend->ctx, select_next_proto_cb, data);
-  */
 #endif
 
 #ifdef HAS_ALPN
@@ -2943,6 +3047,35 @@ static CURLcode ossl_connect_step1(struct Curl_easy *data,
     if(curves) {
       if(!SSL_CTX_set1_curves_list(backend->ctx, curves)) {
         failf(data, "failed setting curves list: '%s'", curves);
+        return CURLE_SSL_CIPHER;
+      }
+    }
+  }
+#endif
+
+#ifdef HAVE_SSL_CTX_SET_VERIFY_ALGORITHM_PREFS
+  {
+    uint16_t algs[MAX_SIG_ALGS];
+    size_t nalgs;
+    /* curl-impersonate: Set the signature algorithms (TLS extension 13).
+     * See net/socket/ssl_client_socket_impl.cc in Chromium's source. */
+    char *sig_hash_algs = SSL_CONN_CONFIG(sig_hash_algs);
+    if (sig_hash_algs) {
+      CURLcode result = parse_sig_algs(data, sig_hash_algs, algs, &nalgs);
+      if (result)
+        return result;
+      if (!SSL_CTX_set_verify_algorithm_prefs(backend->ctx, algs, nalgs)) {
+        failf(data, "failed setting signature hash algorithms list: '%s'",
+              sig_hash_algs);
+        return CURLE_SSL_CIPHER;
+      }
+    } else {
+      /* Use defaults from Chrome. */
+      if (!SSL_CTX_set_verify_algorithm_prefs(backend->ctx,
+                                              default_sig_algs,
+                                              DEFAULT_SIG_ALGS_LENGTH)) {
+        failf(data, "failed setting signature hash algorithms list: '%s'",
+              sig_hash_algs);
         return CURLE_SSL_CIPHER;
       }
     }
@@ -3286,12 +3419,18 @@ static CURLcode ossl_connect_step1(struct Curl_easy *data,
 
   SSL_set_connect_state(backend->handle);
 
-#ifdef USE_HTTP2
-  /* curl-impersonate: This adds the ALPS extension (17513).
-   * Chromium calls this function as well in SSLClientSocketImpl::Init().
-   * The 4th parameter is called "settings", and I don't know what it
-   * should contain. For now, use an empty string. */
-  SSL_add_application_settings(backend->handle, "h2", 2, NULL, 0);
+#if defined(HAS_ALPN) && defined(USE_HTTP2)
+  if(conn->bits.tls_enable_alpn &&
+     data->state.httpwant >= CURL_HTTP_VERSION_2 &&
+     conn->bits.tls_enable_alps) {
+    /* curl-impersonate: This adds the ALPS extension (17513).
+     * Chromium calls this function as well in SSLClientSocketImpl::Init().
+     * The 4th parameter is called "settings", and I don't know what it
+     * should contain. For now, use an empty string. */
+    SSL_add_application_settings(backend->handle, ALPN_H2, ALPN_H2_LENGTH,
+                                 NULL, 0);
+    infof(data, "ALPS, offering %s", ALPN_H2);
+  }
 #endif
 
   SSL_set_options(backend->handle,
@@ -3306,20 +3445,6 @@ static CURLcode ossl_connect_step1(struct Curl_easy *data,
 
   /* curl-impersonate: Some SSL settings copied over from Chrome. */
   SSL_set_shed_handshake_config(backend->handle, 1);
-
-  /* curl-impersonate: Set the signature algorithms.
-   * (TLS extension 13).
-   * See net/socket/ssl_client_socket_impl.cc in Chromium's source. */
-  static const uint16_t kVerifyPrefs[] = {
-    SSL_SIGN_ECDSA_SECP256R1_SHA256, SSL_SIGN_RSA_PSS_RSAE_SHA256,
-    SSL_SIGN_RSA_PKCS1_SHA256,       SSL_SIGN_ECDSA_SECP384R1_SHA384,
-    SSL_SIGN_RSA_PSS_RSAE_SHA384,    SSL_SIGN_RSA_PKCS1_SHA384,
-    SSL_SIGN_RSA_PSS_RSAE_SHA512,    SSL_SIGN_RSA_PKCS1_SHA512,
-  };
-  if (!SSL_set_verify_algorithm_prefs(backend->handle, kVerifyPrefs,
-              sizeof(kVerifyPrefs) / sizeof(kVerifyPrefs[0]))) {
-    return CURLE_SSL_CIPHER;
-  }
 
   backend->server_cert = 0x0;
 #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME

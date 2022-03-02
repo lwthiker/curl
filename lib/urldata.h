@@ -257,6 +257,7 @@ struct ssl_primary_config {
   struct curl_blob *ca_info_blob;
   struct curl_blob *issuercert_blob;
   char *curves;          /* list of curves to use */
+  char *sig_hash_algs;   /* List of signature hash algorithms to use */
   BIT(verifypeer);       /* set TRUE if this is desired */
   BIT(verifyhost);       /* set TRUE if CN/SAN must match hostname */
   BIT(verifystatus);     /* set TRUE if certificate status must be checked */
@@ -517,6 +518,7 @@ struct ConnectBits {
   BIT(tcp_fastopen); /* use TCP Fast Open */
   BIT(tls_enable_npn);  /* TLS NPN extension? */
   BIT(tls_enable_alpn); /* TLS ALPN extension? */
+  BIT(tls_enable_alps); /* TLS ALPS extension? */
   BIT(connect_only);
 #ifndef CURL_DISABLE_DOH
   BIT(doh);
@@ -1592,6 +1594,7 @@ enum dupstring {
   STRING_DNS_LOCAL_IP4,
   STRING_DNS_LOCAL_IP6,
   STRING_SSL_EC_CURVES,
+  STRING_SSL_SIG_HASH_ALGS,
 
   /* -- end of null-terminated strings -- */
 
@@ -1862,6 +1865,7 @@ struct UserDefined {
   BIT(tcp_fastopen);   /* use TCP Fast Open */
   BIT(ssl_enable_npn); /* TLS NPN extension? */
   BIT(ssl_enable_alpn);/* TLS ALPN extension? */
+  BIT(ssl_enable_alps);/* TLS ALPS extension? */
   BIT(path_as_is);     /* allow dotdots? */
   BIT(pipewait);       /* wait for multiplex status before starting a new
                           connection */

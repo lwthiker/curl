@@ -294,6 +294,12 @@ static const struct impersonate_opts {
   int httpversion;
   int ssl_version;
   const char *ciphers;
+  /* Enable TLS NPN extension. */
+  bool npn;
+  /* Enable TLS ALPN extension. */
+  bool alpn;
+  /* Enable TLS ALPS extension. */
+  bool alps;
   const char *http_headers[IMPERSONATE_MAX_HEADERS];
   /* Other TLS options will come here in the future once they are
    * configurable through curl_easy_setopt() */
@@ -318,6 +324,9 @@ static const struct impersonate_opts {
       "AES256-GCM-SHA384,"
       "AES128-SHA,"
       "AES256-SHA",
+    .npn = false,
+    .alpn = true,
+    .alps = true,
     .http_headers = {
       "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"98\", \"Google Chrome\";v=\"98\"",
       "sec-ch-ua-mobile: ?0",
@@ -353,6 +362,9 @@ static const struct impersonate_opts {
       "AES256-GCM-SHA384,"
       "AES128-SHA,"
       "AES256-SHA",
+    .npn = false,
+    .alpn = true,
+    .alps = true,
     .http_headers = {
       "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"98\", \"Microsoft Edge\";v=\"98\"",
       "sec-ch-ua-mobile: ?0",
@@ -417,6 +429,18 @@ CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target)
     if (ret)
       return ret;
   }
+
+  ret = curl_easy_setopt(data, CURLOPT_SSL_ENABLE_NPN, opts->npn ? 1 : 0);
+  if(ret)
+    return ret;
+
+  ret = curl_easy_setopt(data, CURLOPT_SSL_ENABLE_ALPN, opts->alpn ? 1 : 0);
+  if(ret)
+    return ret;
+
+  ret = curl_easy_setopt(data, CURLOPT_SSL_ENABLE_ALPS, opts->alps ? 1 : 0);
+  if(ret)
+    return ret;
 
   /* Build a linked list out of the static array of headers. */
   for(i = 0; i < IMPERSONATE_MAX_HEADERS; i++) {

@@ -279,6 +279,8 @@ static const struct LongShort aliases[]= {
   {"EC", "etag-save",                ARG_FILENAME},
   {"ED", "etag-compare",             ARG_FILENAME},
   {"EE", "curves",                   ARG_STRING},
+  {"EG", "signature-hashes",         ARG_STRING},
+  {"EH", "alps",                     ARG_BOOL},
   {"f",  "fail",                     ARG_BOOL},
   {"fa", "fail-early",               ARG_BOOL},
   {"fb", "styled-output",            ARG_BOOL},
@@ -1792,6 +1794,16 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
 
       case 'E':
         GetStr(&config->ssl_ec_curves, nextarg);
+        break;
+
+      case 'G':
+        /* --signature-hashes */
+        GetStr(&config->ssl_sig_hash_algs, nextarg);
+        break;
+
+      case 'H':
+        /* --alps */
+        config->alps = toggle;
         break;
 
       default: /* unknown flag */

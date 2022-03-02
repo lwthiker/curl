@@ -165,6 +165,7 @@ struct OperationConfig {
   bool crlf;
   char *customrequest;
   char *ssl_ec_curves;
+  char *ssl_sig_hash_algs;
   char *krblevel;
   char *request_target;
   long httpversion;
@@ -274,6 +275,7 @@ struct OperationConfig {
   char *oauth_bearer;             /* OAuth 2.0 bearer token */
   bool nonpn;                     /* enable/disable TLS NPN extension */
   bool noalpn;                    /* enable/disable TLS ALPN extension */
+  bool alps;                      /* enable/disable TLS ALPS extension */
   char *unix_socket_path;         /* path to Unix domain socket */
   bool abstract_unix_socket;      /* path to an abstract Unix domain socket */
   bool falsestart;
