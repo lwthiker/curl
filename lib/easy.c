@@ -294,6 +294,12 @@ static const struct impersonate_opts {
   int httpversion;
   int ssl_version;
   const char *ciphers;
+  /* Elliptic curves (TLS extension 10).
+   * Passed to CURLOPT_SSL_EC_CURVES */
+  const char *curves;
+  /* Signature hash algorithms (TLS extension 13).
+   * Passed to CURLOPT_SSL_SIG_HASH_ALGS */
+  const char *sig_hash_algs;
   /* Enable TLS NPN extension. */
   bool npn;
   /* Enable TLS ALPN extension. */
@@ -389,6 +395,62 @@ static const struct impersonate_opts {
       "Accept-Encoding: gzip, deflate, br",
       "Accept-Language: en-US,en;q=0.9"
     }
+  },
+  {
+    .target = "safari15_3",
+    .httpversion = CURL_HTTP_VERSION_2_0,
+    .ssl_version = CURL_SSLVERSION_TLSv1_0 | CURL_SSLVERSION_MAX_DEFAULT,
+    .ciphers =
+        "TLS_AES_128_GCM_SHA256,"
+        "TLS_AES_256_GCM_SHA384,"
+        "TLS_CHACHA20_POLY1305_SHA256,"
+        "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,"
+        "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,"
+        "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,"
+        "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,"
+        "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,"
+        "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,"
+        "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,"
+        "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,"
+        "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,"
+        "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,"
+        "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,"
+        "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,"
+        "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,"
+        "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,"
+        "TLS_RSA_WITH_AES_256_GCM_SHA384,"
+        "TLS_RSA_WITH_AES_128_GCM_SHA256,"
+        "TLS_RSA_WITH_AES_256_CBC_SHA256,"
+        "TLS_RSA_WITH_AES_128_CBC_SHA256,"
+        "TLS_RSA_WITH_AES_256_CBC_SHA,"
+        "TLS_RSA_WITH_AES_128_CBC_SHA,"
+        "TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,"
+        "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,"
+        "TLS_RSA_WITH_3DES_EDE_CBC_SHA,",
+    .curves = "X25519:P-256:P-384:P-521",
+    .sig_hash_algs =
+        "ecdsa_secp256r1_sha256,"
+        "rsa_pss_rsae_sha256,"
+        "rsa_pkcs1_sha256,"
+        "ecdsa_secp384r1_sha384,"
+        "ecdsa_sha1,"
+        "rsa_pss_rsae_sha384,"
+        "rsa_pss_rsae_sha384,"
+        "rsa_pkcs1_sha384,"
+        "rsa_pss_rsae_sha512,"
+        "rsa_pkcs1_sha512,"
+        "rsa_pkcs1_sha1",
+    .npn = false,
+    .alpn = true,
+    .alps = false,
+    .tls_session_ticket = false,
+    .http_headers = {
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.3 Safari/605.1.15",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-us",
+        "Accept-Encoding: gzip, deflate, br"
+    },
+    .http2_pseudo_headers_order = "mspa"
   }
 };
 
@@ -437,6 +499,19 @@ CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target)
   if(opts->ciphers) {
     ret = curl_easy_setopt(data, CURLOPT_SSL_CIPHER_LIST, opts->ciphers);
     if (ret)
+      return ret;
+  }
+
+  if(opts->curves) {
+    ret = curl_easy_setopt(data, CURLOPT_SSL_EC_CURVES, opts->curves);
+    if(ret)
+      return ret;
+  }
+
+  if(opts->sig_hash_algs) {
+    ret = curl_easy_setopt(data, CURLOPT_SSL_SIG_HASH_ALGS,
+                           opts->sig_hash_algs);
+    if(ret)
       return ret;
   }
 
