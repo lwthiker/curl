@@ -306,6 +306,7 @@ static const struct impersonate_opts {
    * (TLS extension 27) */
   const char *cert_compression;
   const char *http_headers[IMPERSONATE_MAX_HEADERS];
+  const char *http2_pseudo_headers_order;
   /* Other TLS options will come here in the future once they are
    * configurable through curl_easy_setopt() */
 } impersonations[] = {
@@ -477,6 +478,12 @@ CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target)
   if(headers) {
     ret = curl_easy_setopt(data, CURLOPT_HTTPBASEHEADER, headers);
     curl_slist_free_all(headers);
+    if(ret)
+      return ret;
+  }
+
+  if(opts->http2_pseudo_headers_order) {
+    ret = curl_easy_setopt(data, CURLOPT_HTTP2_PSEUDO_HEADERS_ORDER, headers);
     if(ret)
       return ret;
   }

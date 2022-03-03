@@ -1828,11 +1828,6 @@ static ssize_t http2_recv(struct Curl_easy *data, int sockindex,
   return -1;
 }
 
-/* Index where :authority header field will appear in request header
-   field list. */
-/* curl-impersonate: Put the ":authority" header in the first place. */
-#define AUTHORITY_DST_IDX 1
-
 /* USHRT_MAX is 65535 == 0xffff */
 #define HEADER_OVERFLOW(x) \
   (x.namelen > 0xffff || x.valuelen > 0xffff - x.namelen)
@@ -1903,6 +1898,53 @@ static header_instruction inspect_header(const char *name, size_t namelen,
   }
 }
 
+/*
+ * curl-impersonate:
+ * Determine the position of HTTP/2 pseudo headers.
+ * The pseudo headers ":method", ":path", ":scheme", ":authority"
+ * are sent in different order by different browsers. An important part of the
+ * impersonation is ordering them like the browser does.
+ */
+static int http2_pseudo_header_index(struct Curl_easy *data,
+                                     const char *header,
+                                     size_t *index)
+{
+  char *off;
+  // Use the Chrome ordering by default:
+  // :method, :authority, :scheme, :path
+  char *order = "masp";
+  if(data->set.str[STRING_HTTP2_PSEUDO_HEADERS_ORDER])
+    order = data->set.str[STRING_HTTP2_PSEUDO_HEADERS_ORDER];
+
+  if(strlen(order) != 4)
+    return CURLE_BAD_FUNCTION_ARGUMENT;
+
+  // :method should always be first
+  if(order[0] != 'm')
+    return CURLE_BAD_FUNCTION_ARGUMENT;
+
+  // All pseudo-headers must be present
+  if(!strchr(order, 'm') ||
+     !strchr(order, 'a') ||
+     !strchr(order, 's') ||
+     !strchr(order, 'p'))
+    return CURLE_BAD_FUNCTION_ARGUMENT;
+
+  if(strcasecompare(header, ":method"))
+    off = strchr(order, 'm');
+  else if(strcasecompare(header, ":authority"))
+    off = strchr(order, 'a');
+  else if(strcasecompare(header, ":scheme"))
+    off = strchr(order, 's');
+  else if(strcasecompare(header, ":path"))
+    off = strchr(order, 'p');
+  else
+    return CURLE_BAD_FUNCTION_ARGUMENT;
+
+  *index = off - order;
+  return CURLE_OK;
+}
+
 static ssize_t http2_send(struct Curl_easy *data, int sockindex,
                           const void *mem, size_t len, CURLcode *err)
 {
@@ -1918,6 +1960,7 @@ static ssize_t http2_send(struct Curl_easy *data, int sockindex,
   nghttp2_nv *nva = NULL;
   size_t nheader;
   size_t i;
+  size_t header_idx;
   size_t authority_idx;
   char *hdbuf = (char *)mem;
   char *end, *line_end;
@@ -2023,12 +2066,21 @@ static ssize_t http2_send(struct Curl_easy *data, int sockindex,
   end = memchr(hdbuf, ' ', line_end - hdbuf);
   if(!end || end == hdbuf)
     goto fail;
-  nva[0].name = (unsigned char *)":method";
-  nva[0].namelen = strlen((char *)nva[0].name);
-  nva[0].value = (unsigned char *)hdbuf;
-  nva[0].valuelen = (size_t)(end - hdbuf);
-  nva[0].flags = NGHTTP2_NV_FLAG_NONE;
-  if(HEADER_OVERFLOW(nva[0])) {
+  /* curl-impersonate: Set the index of ":method" based on libcurl option */
+  if(http2_pseudo_header_index(data, ":authority", &authority_idx))
+    goto fail;
+  if(http2_pseudo_header_index(data, ":method", &header_idx))
+    goto fail;
+  /* This is needed to overcome the fact that curl will only move the authority
+   * header into its place after all other headers have been placed. */
+  if(header_idx > authority_idx)
+    header_idx--;
+  nva[header_idx].name = (unsigned char *)":method";
+  nva[header_idx].namelen = strlen((char *)nva[header_idx].name);
+  nva[header_idx].value = (unsigned char *)hdbuf;
+  nva[header_idx].valuelen = (size_t)(end - hdbuf);
+  nva[header_idx].flags = NGHTTP2_NV_FLAG_NONE;
+  if(HEADER_OVERFLOW(nva[header_idx])) {
     failf(data, "Failed sending HTTP request: Header overflow");
     goto fail;
   }
@@ -2045,26 +2097,35 @@ static ssize_t http2_send(struct Curl_easy *data, int sockindex,
   }
   if(!end || end == hdbuf)
     goto fail;
-  /* curl-impersonate: Switch the places of ":path" and ":scheme". */
-  nva[2].name = (unsigned char *)":path";
-  nva[2].namelen = strlen((char *)nva[2].name);
-  nva[2].value = (unsigned char *)hdbuf;
-  nva[2].valuelen = (size_t)(end - hdbuf);
-  nva[2].flags = NGHTTP2_NV_FLAG_NONE;
-  if(HEADER_OVERFLOW(nva[2])) {
+  /* curl-impersonate: Set the index of ":path" based on libcurl option */
+  if(http2_pseudo_header_index(data, ":path", &header_idx))
+    goto fail;
+  if(header_idx > authority_idx)
+    header_idx--;
+  nva[header_idx].name = (unsigned char *)":path";
+  nva[header_idx].namelen = strlen((char *)nva[header_idx].name);
+  nva[header_idx].value = (unsigned char *)hdbuf;
+  nva[header_idx].valuelen = (size_t)(end - hdbuf);
+  nva[header_idx].flags = NGHTTP2_NV_FLAG_NONE;
+  if(HEADER_OVERFLOW(nva[header_idx])) {
     failf(data, "Failed sending HTTP request: Header overflow");
     goto fail;
   }
 
-  nva[1].name = (unsigned char *)":scheme";
-  nva[1].namelen = strlen((char *)nva[1].name);
+  /* curl-impersonate: Set the index of ":scheme" based on libcurl option */
+  if(http2_pseudo_header_index(data, ":scheme", &header_idx))
+    goto fail;
+  if(header_idx > authority_idx)
+    header_idx--;
+  nva[header_idx].name = (unsigned char *)":scheme";
+  nva[header_idx].namelen = strlen((char *)nva[header_idx].name);
   if(conn->handler->flags & PROTOPT_SSL)
-    nva[1].value = (unsigned char *)"https";
+    nva[header_idx].value = (unsigned char *)"https";
   else
-    nva[1].value = (unsigned char *)"http";
-  nva[1].valuelen = strlen((char *)nva[1].value);
-  nva[1].flags = NGHTTP2_NV_FLAG_NONE;
-  if(HEADER_OVERFLOW(nva[1])) {
+    nva[header_idx].value = (unsigned char *)"http";
+  nva[header_idx].valuelen = strlen((char *)nva[header_idx].value);
+  nva[header_idx].flags = NGHTTP2_NV_FLAG_NONE;
+  if(HEADER_OVERFLOW(nva[header_idx])) {
     failf(data, "Failed sending HTTP request: Header overflow");
     goto fail;
   }
@@ -2131,10 +2192,13 @@ static ssize_t http2_send(struct Curl_easy *data, int sockindex,
     ++i;
   }
 
+  /* curl-impersonate: Set the index of ":authority" based on libcurl option */
+  if(http2_pseudo_header_index(data, ":authority", &header_idx))
+    goto fail;
   /* :authority must come before non-pseudo header fields */
-  if(authority_idx && authority_idx != AUTHORITY_DST_IDX) {
+  if(authority_idx && authority_idx != header_idx) {
     nghttp2_nv authority = nva[authority_idx];
-    for(i = authority_idx; i > AUTHORITY_DST_IDX; --i) {
+    for(i = authority_idx; i > header_idx; --i) {
       nva[i] = nva[i - 1];
     }
     nva[i] = authority;

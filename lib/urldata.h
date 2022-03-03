@@ -1598,6 +1598,7 @@ enum dupstring {
   STRING_SSL_EC_CURVES,
   STRING_SSL_SIG_HASH_ALGS,
   STRING_SSL_CERT_COMPRESSION,
+  STRING_HTTP2_PSEUDO_HEADERS_ORDER,
 
   /* -- end of null-terminated strings -- */
 

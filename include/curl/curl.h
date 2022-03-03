@@ -2158,6 +2158,15 @@ typedef enum {
   /* Enable/disable TLS session ticket extension (RFC5077) */
   CURLOPT(CURLOPT_SSL_ENABLE_TICKET, CURLOPTTYPE_LONG, 320),
 
+  /*
+   * curl-impersonate:
+   * Set the order of the HTTP/2 pseudo headers. The value must contain
+   * the letters 'm', 'a', 's', 'p' representing the pseudo-headers
+   * ":method", ":authority", ":scheme", ":path" in the desired order of
+   * appearance in the HTTP/2 HEADERS frame.
+   */
+  CURLOPT(CURLOPT_HTTP2_PSEUDO_HEADERS_ORDER, CURLOPTTYPE_STRINGPOINT, 321),
+
   CURLOPT_LASTENTRY /* the last unused */
 } CURLoption;
 

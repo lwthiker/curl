@@ -169,6 +169,7 @@ struct OperationConfig {
   char *ssl_cert_compression;
   char *krblevel;
   char *request_target;
+  char *http2_pseudo_headers_order;
   long httpversion;
   bool http09_allowed;
   bool nobuffer;
