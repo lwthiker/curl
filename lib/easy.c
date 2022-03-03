@@ -483,7 +483,9 @@ CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target)
   }
 
   if(opts->http2_pseudo_headers_order) {
-    ret = curl_easy_setopt(data, CURLOPT_HTTP2_PSEUDO_HEADERS_ORDER, headers);
+    ret = curl_easy_setopt(data,
+                           CURLOPT_HTTP2_PSEUDO_HEADERS_ORDER,
+                           opts->http2_pseudo_headers_order);
     if(ret)
       return ret;
   }
