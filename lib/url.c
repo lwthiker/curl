@@ -627,6 +627,7 @@ CURLcode Curl_init_userdefined(struct Curl_easy *data)
   set->tcp_nodelay = TRUE;
   set->ssl_enable_npn = TRUE;
   set->ssl_enable_alpn = TRUE;
+  set->ssl_enable_ticket = TRUE;
   set->expect_100_timeout = 1000L; /* Wait for a second by default. */
   set->sep_headers = TRUE; /* separated header lists by default */
   set->buffer_size = READBUFFER_SIZE;
@@ -3934,11 +3935,15 @@ static CURLcode create_conn(struct Curl_easy *data,
       if(data->set.ssl_enable_npn)
         conn->bits.tls_enable_npn = TRUE;
 
-      /* curl-impersonatE: Turn on ALPS if ALPN is enabled and the bit is
+      /* curl-impersonate: Turn on ALPS if ALPN is enabled and the bit is
        * enabled. */
       if(data->set.ssl_enable_alps)
         conn->bits.tls_enable_alps = TRUE;
     }
+
+    /* curl-impersonate: Add the TLS session ticket extension. */
+    if(data->set.ssl_enable_ticket)
+        conn->bits.tls_enable_ticket = TRUE;
 
     if(waitpipe)
       /* There is a connection that *might* become usable for multiplexing

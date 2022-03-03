@@ -3030,10 +3030,14 @@ static CURLcode ossl_connect_step1(struct Curl_easy *data,
   ctx_options = SSL_OP_ALL;
 
 #ifdef SSL_OP_NO_TICKET
-  /* curl-impersonate patch.
+  if(conn->bits.tls_enable_ticket) {
+  /* curl-impersonate:
    * Turn off SSL_OP_NO_TICKET, we want TLS extension 35 (session_ticket)
-   * to be sent. */
-  ctx_options &= ~SSL_OP_NO_TICKET;
+   * to be present in the client hello. */
+    ctx_options &= ~SSL_OP_NO_TICKET;
+  } else {
+    ctx_options |= SSL_OP_NO_TICKET;
+  }
 #endif
 
 #ifdef SSL_OP_NO_COMPRESSION

@@ -2155,6 +2155,9 @@ typedef enum {
    * See https://datatracker.ietf.org/doc/html/rfc8879 */
   CURLOPT(CURLOPT_SSL_CERT_COMPRESSION, CURLOPTTYPE_STRINGPOINT, 319),
 
+  /* Enable/disable TLS session ticket extension (RFC5077) */
+  CURLOPT(CURLOPT_SSL_ENABLE_TICKET, CURLOPTTYPE_LONG, 320),
+
   CURLOPT_LASTENTRY /* the last unused */
 } CURLoption;
 

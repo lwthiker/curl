@@ -300,6 +300,8 @@ static const struct impersonate_opts {
   bool alpn;
   /* Enable TLS ALPS extension. */
   bool alps;
+  /* Enable TLS session ticket extension. */
+  bool tls_session_ticket;
   /* TLS certificate compression algorithms.
    * (TLS extension 27) */
   const char *cert_compression;
@@ -330,6 +332,7 @@ static const struct impersonate_opts {
     .npn = false,
     .alpn = true,
     .alps = true,
+    .tls_session_ticket = true,
     .cert_compression = "brotli",
     .http_headers = {
       "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"98\", \"Google Chrome\";v=\"98\"",
@@ -369,6 +372,7 @@ static const struct impersonate_opts {
     .npn = false,
     .alpn = true,
     .alps = true,
+    .tls_session_ticket = true,
     .cert_compression = "brotli",
     .http_headers = {
       "sec-ch-ua: \" Not A;Brand\";v=\"99\", \"Chromium\";v=\"98\", \"Microsoft Edge\";v=\"98\"",
@@ -444,6 +448,11 @@ CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target)
     return ret;
 
   ret = curl_easy_setopt(data, CURLOPT_SSL_ENABLE_ALPS, opts->alps ? 1 : 0);
+  if(ret)
+    return ret;
+
+  ret = curl_easy_setopt(data, CURLOPT_SSL_ENABLE_TICKET,
+                         opts->tls_session_ticket ? 1 : 0);
   if(ret)
     return ret;
 
