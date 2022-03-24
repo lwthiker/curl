@@ -590,9 +590,7 @@ CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target)
   struct curl_slist *headers = NULL;
 
   for(i = 0; i < NUM_IMPERSONATIONS; i++) {
-    if (Curl_strncasecompare(target,
-                             impersonations[i].target,
-                             strlen(impersonations[i].target))) {
+    if (Curl_safe_strcasecompare(target, impersonations[i].target)) {
       opts = &impersonations[i];
       break;
     }
