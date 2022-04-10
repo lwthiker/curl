@@ -1440,6 +1440,8 @@ struct Curl_easy *curl_easy_duphandle(struct Curl_easy *data)
  */
 void curl_easy_reset(struct Curl_easy *data)
 {
+  char *target;
+
   Curl_free_request_state(data);
 
   /* zero out UserDefined data: */
@@ -1464,6 +1466,12 @@ void curl_easy_reset(struct Curl_easy *data)
 #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_CRYPTO_AUTH)
   Curl_http_auth_cleanup_digest(data);
 #endif
+
+  target = curl_getenv("CURL_IMPERSONATE");
+  if(target) {
+    curl_easy_impersonate(data, target);
+    free(target);
+  }
 }
 
 /*
