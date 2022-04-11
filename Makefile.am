@@ -192,13 +192,13 @@ CLEANFILES = $(VC6_LIBDSP) $(VC6_SRCDSP) $(VC7_LIBVCPROJ) $(VC7_SRCVCPROJ) \
  $(VC11_LIBVCXPROJ) $(VC11_SRCVCXPROJ) $(VC12_LIBVCXPROJ) $(VC12_SRCVCXPROJ) \
  $(VC14_LIBVCXPROJ) $(VC14_SRCVCXPROJ) $(VC15_LIBVCXPROJ) $(VC15_SRCVCXPROJ)
 
-bin_SCRIPTS = curl-config
+bin_SCRIPTS = curl-impersonate-ff-config
 
 SUBDIRS = lib src
 DIST_SUBDIRS = $(SUBDIRS) tests packages scripts include docs
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = libcurl.pc
+pkgconfig_DATA = libcurl-impersonate-ff.pc
 
 # List of files required to generate VC IDE .dsp, .vcproj and .vcxproj files
 include lib/Makefile.inc
