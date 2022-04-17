@@ -1332,7 +1332,7 @@ if test X"$OPT_BROTLI" != Xno; then
   dnl if given with a prefix, we set -L and -I based on that
   if test -n "$PREFIX_BROTLI"; then
     # curl-impersonate: Use static libbrotli
-    LIB_BROTLI="-Wl,-Bstatic -lbrotlidec-static -lbrotlicommon-static -Wl,-Bdynamic"
+    LIB_BROTLI="-lbrotlidec-static -lbrotlicommon-static"
     LD_BROTLI=-L${PREFIX_BROTLI}/lib$libsuff
     CPP_BROTLI=-I${PREFIX_BROTLI}/include
     DIR_BROTLI=${PREFIX_BROTLI}/lib$libsuff
