@@ -74,7 +74,74 @@ if test "x$OPT_NSS" != xno; then
       # Without pkg-config, we'll kludge in some defaults
       AC_MSG_WARN([Using hard-wired libraries and compilation flags for NSS.])
       addld="-L$OPT_NSS/lib"
-      addlib="-Wl,-Bstatic -Wl,--start-group -lssl -lnss_static -lpk11wrap_static -lcertdb -lcerthi -lsmime -lnsspki -lnssdev -lsoftokn_static -lfreebl_static -lsha-x86_c_lib -lgcm-aes-x86_c_lib -lhw-acc-crypto-avx -lhw-acc-crypto-avx2  -lnssutil -lnssb -lcryptohi -l:libplc4.a -l:libplds4.a -l:libnspr4.a -lsqlite -Wl,--end-group -Wl,-Bdynamic -pthread -ldl"
+
+      # curl-impersonate: Link NSS statically.
+      # NSS is poorly documented in this regard and a lot of trial and error
+      # was made to come up with the correct list of linking flags. The
+      # libraries have circular dependencies which makes their order extremely
+      # difficult to find out.
+
+      # Some references:
+      # https://github.com/mozilla/application-services/blob/b2690fd2e4cc3e8e10b6868ab0de8b79c89d3a93/components/support/rc_crypto/nss/nss_build_common/src/lib.rs#L94
+      # and
+      # https://hg.mozilla.org/mozilla-central/file/tip/security/nss/lib/freebl/freebl.gyp
+
+      # On Linux we can use special linker flags to force static linking
+      # (-l:libplc4.a etc.), otherwise the linker will prefer to use
+      # libplc4.so. On other systems the dynamic libraries would have to be
+      # removed manually from the NSS directory before building curl.
+      case $host_os in
+        linux*)
+          addlib="-lssl -lnss_static -lpk11wrap_static -lcertdb -lcerthi -lnsspki -lnssdev -lsoftokn_static -lfreebl_static -lnssutil -lnssb -lcryptohi -l:libplc4.a -l:libplds4.a -l:libnspr4.a -lsqlite"
+          ;;
+        darwin*)
+          addlib="-lssl -lnss_static -lpk11wrap_static -lcertdb -lcerthi -lnsspki -lnssdev -lsoftokn_static -lfreebl_static -lnssutil -lnssb -lcryptohi -lplc4 -lplds4 -lnspr4"
+          ;;
+        *)
+          addlib="-lssl -lnss_static -lpk11wrap_static -lcertdb -lcerthi -lnsspki -lnssdev -lsoftokn_static -lfreebl_static -lnssutil -lnssb -lcryptohi -lplc4 -lplds4 -lnspr4 -lsqlite"
+          ;;
+      esac
+
+      case $host_cpu in
+        arm)
+          addlib="$addlib -larmv8_c_lib"
+          ;;
+        aarch64)
+          addlib="$addlib -larmv8_c_lib -lgcm-aes-aarch64_c_lib"
+          ;;
+        x86)
+          addlib="$addlib -lgcm-aes-x86_c_lib"
+          ;;
+        x86_64)
+          addlib="$addlib -lgcm-aes-x86_c_lib -lhw-acc-crypto-avx -lhw-acc-crypto-avx2 -lsha-x86_c_lib"
+          case $host_os in
+            linux*)
+              addlib="$addlib -lintel-gcm-wrap_c_lib -lintel-gcm-s_lib"
+              ;;
+          esac
+          ;;
+      esac
+
+      # curl-impersonate:
+      # On Linux these linker flags are necessary to resolve
+      # the symbol mess and circular dependencies of NSS .a libraries
+      # to make the AC_CHECK_LIB test below pass.
+      case $host_os in
+        linux*)
+          addlib="-Wl,--start-group $addlib -Wl,--end-group"
+          ;;
+      esac
+
+      # External dependencies for nss
+      case $host_os in
+        linux*)
+          addlib="$addlib -pthread -ldl"
+          ;;
+        darwin*)
+          addlib="$addlib -lsqlite3"
+          ;;
+      esac
+
       addcflags="-I$OPT_NSS/include"
       version="unknown"
       nssprefix=$OPT_NSS
@@ -101,9 +168,7 @@ if test "x$OPT_NSS" != xno; then
      test nss != "$DEFAULT_SSL_BACKEND" || VALID_DEFAULT_SSL_BACKEND=yes
      ],
      [
-       LDFLAGS="$CLEANLDFLAGS"
-       LIBS="$CLEANLIBS"
-       CPPFLAGS="$CLEANCPPFLAGS"
+       AC_MSG_ERROR([Failed linking NSS statically])
      ])
 
     if test "x$USE_NSS" = "xyes"; then
