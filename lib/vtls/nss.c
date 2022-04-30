@@ -1411,23 +1411,6 @@ static CURLcode nss_load_module(SECMODModule **pmod, const char *library,
   if(module)
     SECMOD_DestroyModule(module);
 
-  /* Patch for Ubuntu - add a "nss/" suffix to the library name */
-  config_string = aprintf("library=/usr/lib/x86_64-linux-gnu/nss/%s name=%s", library, name);
-  if(!config_string)
-    return CURLE_OUT_OF_MEMORY;
-
-  module = SECMOD_LoadUserModule(config_string, NULL, PR_FALSE);
-  free(config_string);
-
-  if(module && module->loaded) {
-    /* loaded successfully */
-    *pmod = module;
-    return CURLE_OK;
-  }
-
-  if(module)
-    SECMOD_DestroyModule(module);
-
   return CURLE_FAILED_INIT;
 }
 
