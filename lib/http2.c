@@ -57,7 +57,7 @@
 #define NGHTTP2_HAS_SET_LOCAL_WINDOW_SIZE 1
 #endif
 
-#define HTTP2_HUGE_WINDOW_SIZE (32 * 1024 * 1024) /* 32 MB */
+#define HTTP2_HUGE_WINDOW_SIZE (15 * 1024 * 1024) /*  15 MB */
 
 #ifdef DEBUG_HTTP2
 #define H2BUGF(x) x
