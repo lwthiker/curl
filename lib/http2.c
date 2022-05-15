@@ -1210,11 +1210,14 @@ static void populate_settings(struct Curl_easy *data,
   // iv[2].settings_id = NGHTTP2_SETTINGS_ENABLE_PUSH;
   // iv[2].value = data->multi->push_cb != NULL;
   
-  // Looks like random setting set by Chrome, maybe similar to TLS GREASE. */
-  Curl_rand(data, (unsigned char *)&iv[4].settings_id, sizeof(iv[4].settings_id));
-  Curl_rand(data, (unsigned char *)&iv[4].value, sizeof(iv[4].value));
+  // curl-impersonate:
+  // Up until Chrome 98, there was a randomly chosen setting number in the
+  // HTTP2 SETTINGS frame. This might be something similar to TLS GREASE.
+  // However, it seems to have been removed since.
+  // Curl_rand(data, (unsigned char *)&iv[4].settings_id, sizeof(iv[4].settings_id));
+  // Curl_rand(data, (unsigned char *)&iv[4].value, sizeof(iv[4].value));
 
-  httpc->local_settings_num = 5;
+  httpc->local_settings_num = 4;
 }
 
 void Curl_http2_done(struct Curl_easy *data, bool premature)
