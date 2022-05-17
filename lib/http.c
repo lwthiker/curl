@@ -3159,13 +3159,13 @@ CURLcode Curl_http(struct Curl_easy *data, bool *done)
   http = data->req.p.http;
   DEBUGASSERT(http);
 
-  result = Curl_http_host(data, conn);
-  if(result)
-    return result;
-
   /* curl-impersonate: Add HTTP headers to impersonate real browsers. */
   result = Curl_http_merge_headers(data);
   if (result)
+    return result;
+
+  result = Curl_http_host(data, conn);
+  if(result)
     return result;
 
   result = Curl_http_useragent(data);
