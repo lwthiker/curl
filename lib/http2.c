@@ -75,13 +75,20 @@ static int h2_process_pending_input(struct Curl_easy *data,
                                     struct http_conn *httpc,
                                     CURLcode *err);
 
+
+/*
+ * curl-impersonate: Set the HTTP/2 stream weight to the one used by Firefox
+ * by default to fetch html resources.
+ */
+#define FIREFOX_DEFAULT_STREAM_WEIGHT  (42)
+
 /*
  * Curl_http2_init_state() is called when the easy handle is created and
  * allows for HTTP/2 specific init of state.
  */
 void Curl_http2_init_state(struct UrlState *state)
 {
-  state->stream_weight = NGHTTP2_DEFAULT_WEIGHT;
+  state->stream_weight = FIREFOX_DEFAULT_STREAM_WEIGHT;
 }
 
 /*
@@ -90,7 +97,7 @@ void Curl_http2_init_state(struct UrlState *state)
  */
 void Curl_http2_init_userset(struct UserDefined *set)
 {
-  set->stream_weight = NGHTTP2_DEFAULT_WEIGHT;
+  set->stream_weight = FIREFOX_DEFAULT_STREAM_WEIGHT;
 }
 
 static int http2_getsock(struct Curl_easy *data,
@@ -1570,12 +1577,18 @@ static ssize_t http2_handle_stream_close(struct connectdata *conn,
  * struct.
  */
 
+/*
+ * curl-impersonate: By default Firefox uses stream 13 as the "parent" of the
+ * stream that fetches the main html resource of the web page.
+ */
+#define FIREFOX_DEFAULT_STREAM_DEP  (13)
+
 static void h2_pri_spec(struct Curl_easy *data,
                         nghttp2_priority_spec *pri_spec)
 {
   struct HTTP *depstream = (data->set.stream_depends_on?
                             data->set.stream_depends_on->req.p.http:NULL);
-  int32_t depstream_id = depstream? depstream->stream_id:0;
+  int32_t depstream_id = depstream? depstream->stream_id:FIREFOX_DEFAULT_STREAM_DEP;
   nghttp2_priority_spec_init(pri_spec, depstream_id, data->set.stream_weight,
                              data->set.stream_depends_e);
   data->state.stream_weight = data->set.stream_weight;
@@ -2281,6 +2294,73 @@ CURLcode Curl_http2_setup(struct Curl_easy *data,
   return CURLE_OK;
 }
 
+/*
+ * curl-impersonate: Start with stream id 15 as Firefox does.
+ */
+#define FIREFOX_DEFAULT_STREAM_ID   (15)
+
+static CURLcode http2_set_stream_priority(struct Curl_easy *data,
+                                          int32_t stream_id,
+                                          int32_t dep_stream_id,
+                                          int32_t weight)
+{
+  int rv;
+  nghttp2_priority_spec pri_spec;
+  struct connectdata *conn = data->conn;
+  struct http_conn *httpc = &conn->proto.httpc;
+
+  nghttp2_priority_spec_init(&pri_spec, dep_stream_id, weight, 0);
+  rv = nghttp2_submit_priority(httpc->h2, NGHTTP2_FLAG_NONE,
+                               stream_id, &pri_spec);
+  if(rv) {
+    failf(data, "nghttp2_submit_priority() failed: %s(%d)",
+          nghttp2_strerror(rv), rv);
+    return CURLE_HTTP2;
+  }
+
+  return CURLE_OK;
+}
+
+
+/*
+ * curl-impersonate: Firefox uses an elaborate scheme of http/2 streams to
+ * split the load for html/js/css/images. It builds a tree of streams with
+ * different weights (priorities) by default and communicates this to the
+ * server. Imitate that behavior.
+ */
+static CURLcode http2_set_stream_priorities(struct Curl_easy *data)
+{
+  CURLcode result;
+  struct connectdata *conn = data->conn;
+  struct http_conn *httpc = &conn->proto.httpc;
+
+  result = http2_set_stream_priority(data, 3, 0, 201);
+  if(result)
+    return result;
+
+  result = http2_set_stream_priority(data, 5, 0, 101);
+  if(result)
+    return result;
+
+  result = http2_set_stream_priority(data, 7, 0, 0);
+  if(result)
+    return result;
+
+  result = http2_set_stream_priority(data, 9, 7, 0);
+  if(result)
+    return result;
+
+  result = http2_set_stream_priority(data, 11, 3, 0);
+  if(result)
+    return result;
+
+  result = http2_set_stream_priority(data, 13, 0, 241);
+  if(result)
+    return result;
+
+  return CURLE_OK;
+}
+
 CURLcode Curl_http2_switched(struct Curl_easy *data,
                              const char *mem, size_t nread)
 {
@@ -2289,6 +2369,7 @@ CURLcode Curl_http2_switched(struct Curl_easy *data,
   struct http_conn *httpc = &conn->proto.httpc;
   int rv;
   struct HTTP *stream = data->req.p.http;
+  nghttp2_priority_spec pri_spec;
 
   result = Curl_http2_setup(data, conn);
   if(result)
@@ -2342,6 +2423,13 @@ CURLcode Curl_http2_switched(struct Curl_easy *data,
           nghttp2_strerror(rv), rv);
     return CURLE_HTTP2;
   }
+
+  result = http2_set_stream_priorities(data);
+  if(result)
+    return result;
+
+  /* Best effort to set the request's stream id to 15, like Firefox does. */
+  nghttp2_session_set_next_stream_id(httpc->h2, FIREFOX_DEFAULT_STREAM_ID);
 
   /* we are going to copy mem to httpc->inbuf.  This is required since
      mem is part of buffer pointed by stream->mem, and callbacks
