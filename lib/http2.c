@@ -77,12 +77,19 @@ static int h2_process_pending_input(struct Curl_easy *data,
                                     CURLcode *err);
 
 /*
+ * curl-impersonate: Use Chrome's default HTTP/2 stream weight.
+ */
+
+#define CHROME_DEFAULT_STREAM_WEIGHT    (256)
+
+/*
  * Curl_http2_init_state() is called when the easy handle is created and
  * allows for HTTP/2 specific init of state.
  */
 void Curl_http2_init_state(struct UrlState *state)
 {
-  state->stream_weight = NGHTTP2_DEFAULT_WEIGHT;
+  state->stream_weight = CHROME_DEFAULT_STREAM_WEIGHT;
+  state->stream_depends_e = TRUE;
 }
 
 /*
@@ -91,7 +98,8 @@ void Curl_http2_init_state(struct UrlState *state)
  */
 void Curl_http2_init_userset(struct UserDefined *set)
 {
-  set->stream_weight = NGHTTP2_DEFAULT_WEIGHT;
+  set->stream_weight = CHROME_DEFAULT_STREAM_WEIGHT;
+  set->stream_depends_e = TRUE;
 }
 
 static int http2_getsock(struct Curl_easy *data,
