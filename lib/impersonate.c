@@ -300,6 +300,57 @@ const struct impersonate_opts impersonations[] = {
     .http2_pseudo_headers_order = "mspa"
   },
   {
+    .target = "safari15_5",
+    .httpversion = CURL_HTTP_VERSION_2_0,
+    .ssl_version = CURL_SSLVERSION_TLSv1_0 | CURL_SSLVERSION_MAX_DEFAULT,
+    .ciphers =
+      "TLS_AES_128_GCM_SHA256,"
+      "TLS_AES_256_GCM_SHA384,"
+      "TLS_CHACHA20_POLY1305_SHA256,"
+      "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,"
+      "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,"
+      "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,"
+      "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,"
+      "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,"
+      "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,"
+      "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,"
+      "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,"
+      "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,"
+      "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,"
+      "TLS_RSA_WITH_AES_256_GCM_SHA384,"
+      "TLS_RSA_WITH_AES_128_GCM_SHA256,"
+      "TLS_RSA_WITH_AES_256_CBC_SHA,"
+      "TLS_RSA_WITH_AES_128_CBC_SHA,"
+      "TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,"
+      "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,"
+      "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
+    .curves = "X25519:P-256:P-384:P-521",
+    .sig_hash_algs =
+      "ecdsa_secp256r1_sha256,"
+      "rsa_pss_rsae_sha256,"
+      "rsa_pkcs1_sha256,"
+      "ecdsa_secp384r1_sha384,"
+      "ecdsa_sha1,"
+      "rsa_pss_rsae_sha384,"
+      "rsa_pss_rsae_sha384,"
+      "rsa_pkcs1_sha384,"
+      "rsa_pss_rsae_sha512,"
+      "rsa_pkcs1_sha512,"
+      "rsa_pkcs1_sha1",
+    .npn = false,
+    .alpn = true,
+    .alps = false,
+    .tls_session_ticket = false,
+    .cert_compression = "zlib",
+    .http_headers = {
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: en-GB,en-US;q=0.9,en;q=0.8",
+        "Accept-Encoding: gzip, deflate, br"
+    },
+    .http2_pseudo_headers_order = "mspa"
+  },
+  {
     /* Last one must be NULL. */
     .target = NULL
   }
