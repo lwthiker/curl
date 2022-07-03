@@ -81,6 +81,7 @@
 #include "altsvc.h"
 #include "hsts.h"
 #include "strcase.h"
+#include "impersonate.h"
 
 /* The last 3 #include files should be in this order */
 #include "curl_printf.h"
@@ -284,167 +285,6 @@ void curl_global_cleanup(void)
 }
 
 /*
- * curl-impersonate: Options to be set for each supported target browser.
- * Note: this does not include the HTTP headers, which are handled separately
- * in Curl_http().
- */
-#define IMPERSONATE_MAX_HEADERS 32
-static const struct impersonate_opts {
-  const char *target;
-  int httpversion;
-  int ssl_version;
-  const char *ciphers;
-  const char *http_headers[IMPERSONATE_MAX_HEADERS];
-  /* Other TLS options will come here in the future once they are
-   * configurable through curl_easy_setopt() */
-} impersonations[] = {
-  {
-    .target = "ff91esr",
-    .httpversion = CURL_HTTP_VERSION_2_0,
-    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
-    .ciphers =
-      "aes_128_gcm_sha_256,"
-      "chacha20_poly1305_sha_256,"
-      "aes_256_gcm_sha_384,"
-      "ecdhe_ecdsa_aes_128_gcm_sha_256,"
-      "ecdhe_rsa_aes_128_gcm_sha_256,"
-      "ecdhe_ecdsa_chacha20_poly1305_sha_256,"
-      "ecdhe_rsa_chacha20_poly1305_sha_256,"
-      "ecdhe_ecdsa_aes_256_gcm_sha_384,"
-      "ecdhe_rsa_aes_256_gcm_sha_384,"
-      "ecdhe_ecdsa_aes_256_sha,"
-      "ecdhe_ecdsa_aes_128_sha,"
-      "ecdhe_rsa_aes_128_sha,"
-      "ecdhe_rsa_aes_256_sha,"
-      "rsa_aes_128_gcm_sha_256,"
-      "rsa_aes_256_gcm_sha_384,"
-      "rsa_aes_128_sha,"
-      "rsa_aes_256_sha,"
-      "rsa_3des_ede_cbc_sha",
-    .http_headers = {
-      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:91.0) Gecko/20100101 Firefox/91.0",
-      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-      "Accept-Language: en-US,en;q=0.5",
-      "Accept-Encoding: gzip, deflate, br",
-      "Upgrade-Insecure-Requests: 1",
-      "Sec-Fetch-Dest: document",
-      "Sec-Fetch-Mode: navigate",
-      "Sec-Fetch-Site: none",
-      "Sec-Fetch-User: ?1",
-      "TE: Trailers"
-    }
-  },
-  {
-    .target = "ff95",
-    .httpversion = CURL_HTTP_VERSION_2_0,
-    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
-    .ciphers =
-      "aes_128_gcm_sha_256,"
-      "chacha20_poly1305_sha_256,"
-      "aes_256_gcm_sha_384,"
-      "ecdhe_ecdsa_aes_128_gcm_sha_256,"
-      "ecdhe_rsa_aes_128_gcm_sha_256,"
-      "ecdhe_ecdsa_chacha20_poly1305_sha_256,"
-      "ecdhe_rsa_chacha20_poly1305_sha_256,"
-      "ecdhe_ecdsa_aes_256_gcm_sha_384,"
-      "ecdhe_rsa_aes_256_gcm_sha_384,"
-      "ecdhe_ecdsa_aes_256_sha,"
-      "ecdhe_ecdsa_aes_128_sha,"
-      "ecdhe_rsa_aes_128_sha,"
-      "ecdhe_rsa_aes_256_sha,"
-      "rsa_aes_128_gcm_sha_256,"
-      "rsa_aes_256_gcm_sha_384,"
-      "rsa_aes_128_sha,"
-      "rsa_aes_256_sha",
-    .http_headers = {
-      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0",
-      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-      "Accept-Language: en-US,en;q=0.5",
-      "Accept-Encoding: gzip, deflate, br",
-      "Upgrade-Insecure-Requests: 1",
-      "Sec-Fetch-Dest: document",
-      "Sec-Fetch-Mode: navigate",
-      "Sec-Fetch-Site: none",
-      "Sec-Fetch-User: ?1",
-      "TE: Trailers"
-    }
-  },
-  {
-    .target = "ff98",
-    .httpversion = CURL_HTTP_VERSION_2_0,
-    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
-    .ciphers =
-      "aes_128_gcm_sha_256,"
-      "chacha20_poly1305_sha_256,"
-      "aes_256_gcm_sha_384,"
-      "ecdhe_ecdsa_aes_128_gcm_sha_256,"
-      "ecdhe_rsa_aes_128_gcm_sha_256,"
-      "ecdhe_ecdsa_chacha20_poly1305_sha_256,"
-      "ecdhe_rsa_chacha20_poly1305_sha_256,"
-      "ecdhe_ecdsa_aes_256_gcm_sha_384,"
-      "ecdhe_rsa_aes_256_gcm_sha_384,"
-      "ecdhe_ecdsa_aes_256_sha,"
-      "ecdhe_ecdsa_aes_128_sha,"
-      "ecdhe_rsa_aes_128_sha,"
-      "ecdhe_rsa_aes_256_sha,"
-      "rsa_aes_128_gcm_sha_256,"
-      "rsa_aes_256_gcm_sha_384,"
-      "rsa_aes_128_sha,"
-      "rsa_aes_256_sha",
-    .http_headers = {
-      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:98.0) Gecko/20100101 Firefox/98.0",
-      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-      "Accept-Language: en-US,en;q=0.5",
-      "Accept-Encoding: gzip, deflate, br",
-      "Upgrade-Insecure-Requests: 1",
-      "Sec-Fetch-Dest: document",
-      "Sec-Fetch-Mode: navigate",
-      "Sec-Fetch-Site: none",
-      "Sec-Fetch-User: ?1",
-      "TE: Trailers"
-    }
-  },
-  {
-    .target = "ff100",
-    .httpversion = CURL_HTTP_VERSION_2_0,
-    .ssl_version = CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_DEFAULT,
-    .ciphers =
-      "aes_128_gcm_sha_256,"
-      "chacha20_poly1305_sha_256,"
-      "aes_256_gcm_sha_384,"
-      "ecdhe_ecdsa_aes_128_gcm_sha_256,"
-      "ecdhe_rsa_aes_128_gcm_sha_256,"
-      "ecdhe_ecdsa_chacha20_poly1305_sha_256,"
-      "ecdhe_rsa_chacha20_poly1305_sha_256,"
-      "ecdhe_ecdsa_aes_256_gcm_sha_384,"
-      "ecdhe_rsa_aes_256_gcm_sha_384,"
-      "ecdhe_ecdsa_aes_256_sha,"
-      "ecdhe_ecdsa_aes_128_sha,"
-      "ecdhe_rsa_aes_128_sha,"
-      "ecdhe_rsa_aes_256_sha,"
-      "rsa_aes_128_gcm_sha_256,"
-      "rsa_aes_256_gcm_sha_384,"
-      "rsa_aes_128_sha,"
-      "rsa_aes_256_sha",
-    .http_headers = {
-      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:100.0) Gecko/20100101 Firefox/100.0",
-      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-      "Accept-Language: en-US,en;q=0.5",
-      "Accept-Encoding: gzip, deflate, br",
-      "Upgrade-Insecure-Requests: 1",
-      "Sec-Fetch-Dest: document",
-      "Sec-Fetch-Mode: navigate",
-      "Sec-Fetch-Site: none",
-      "Sec-Fetch-User: ?1",
-      "TE: Trailers"
-    }
-  }
-};
-
-#define NUM_IMPERSONATIONS \
-  sizeof(impersonations) / sizeof(impersonations[0])
-
-/*
  * curl-impersonate:
  * Call curl_easy_setopt() with all the needed options as defined in the
  * 'impersonations' array.
@@ -453,19 +293,16 @@ CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target)
 {
   int i;
   int ret;
-  const struct impersonate_opts *opts = NULL;
+  const struct impersonate_opts *opts;
   struct curl_slist *headers = NULL;
 
-  for(i = 0; i < NUM_IMPERSONATIONS; i++) {
-    if (Curl_strncasecompare(target,
-                             impersonations[i].target,
-                             strlen(impersonations[i].target))) {
-      opts = &impersonations[i];
+  for (opts = impersonations; opts->target != NULL; opts++) {
+    if (Curl_strncasecompare(target, opts->target, strlen(opts->target))) {
       break;
     }
   }
 
-  if(!opts) {
+  if(opts->target == NULL) {
     DEBUGF(fprintf(stderr, "Error: unknown impersonation target '%s'\n",
                    target));
     return CURLE_BAD_FUNCTION_ARGUMENT;
