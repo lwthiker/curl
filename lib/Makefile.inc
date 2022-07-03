@@ -157,6 +157,7 @@ LIB_CFILES =         \
   idn_win32.c        \
   if2ip.c            \
   imap.c             \
+  impersonate.c      \
   inet_ntop.c        \
   inet_pton.c        \
   krb5.c             \
