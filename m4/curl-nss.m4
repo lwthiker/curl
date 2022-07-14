@@ -147,33 +147,49 @@ if test "x$OPT_NSS" != xno; then
       # at runtime using dlopen. If it's not in a path findable by dlopen
       # we have to add that path explicitly using -rpath so it may find it.
       # On Ubuntu and Mac M1 it is in a non-standard location.
-      AC_MSG_CHECKING([if libnssckbi is in a non-standard location])
-      case $host_os in
-        linux*)
-          search_paths="/usr/lib/$host /usr/lib/$host/nss"
-          search_paths="$search_paths /usr/lib/$host_cpu-$host_os"
-          search_paths="$search_paths /usr/lib/$host_cpu-$host_os/nss"
-          search_ext="so"
-          ;;
-        darwin*)
-          search_paths="/opt/homebrew/lib"
-          search_ext="dylib"
-          ;;
-      esac
+      AC_ARG_WITH(libnssckbi,
+        [AS_HELP_STRING([--with-libnssckbi=DIRECTORY],
+                       [Path where libnssckbi can be found when using NSS])],
+        [AS_IF(
+          [test x"$withval" = xyes],
+          [nssckbi_path="check"],
+          [nssckbi_path="$withval"])],
+        [nssckbi_path="check"])
 
-      found="no"
-      for path in $search_paths; do
-        if test -f "$path/libnssckbi.$search_ext"; then
-          AC_MSG_RESULT([$path])
-          addld="$addld -Wl,-rpath,$path"
-          found="yes"
-          break
-        fi
-      done
+      AS_IF(
+        [test "x$nssckbi_path" = xno],
+        [],
+        [test "x$nssckbi_path" != xcheck],
+        [addld="$addld -Wl,-rpath,$nssckbi_path"],
+        [
+          AC_MSG_CHECKING([if libnssckbi is in a non-standard location])
+          case $host_os in
+            linux*)
+              search_paths="/usr/lib/$host /usr/lib/$host/nss"
+              search_paths="$search_paths /usr/lib/$host_cpu-$host_os"
+              search_paths="$search_paths /usr/lib/$host_cpu-$host_os/nss"
+              search_ext="so"
+              ;;
+            darwin*)
+              search_paths="/opt/homebrew/lib"
+              search_ext="dylib"
+              ;;
+          esac
 
-      if test "$found" = "no"; then
-        AC_MSG_RESULT([no])
-      fi
+          found="no"
+          for path in $search_paths; do
+            if test -f "$path/libnssckbi.$search_ext"; then
+              AC_MSG_RESULT([$path])
+              addld="$addld -Wl,-rpath,$path"
+              found="yes"
+              break
+            fi
+          done
+
+          if test "$found" = "no"; then
+            AC_MSG_RESULT([no])
+          fi
+        ])
 
       addcflags="-I$OPT_NSS/include"
       version="unknown"
