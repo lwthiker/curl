@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -17,6 +17,8 @@
 .\" *
 .\" * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 .\" * KIND, either express or implied.
+.\" *
+.\" * SPDX-License-Identifier: curl
 .\" *
 .\" **************************************************************************
 .\"
@@ -264,7 +266,7 @@ Proxy TLS authentication methods. See \fICURLOPT_PROXY_TLSAUTH_TYPE(3)\fP
 .IP CURLOPT_PROXYAUTH
 HTTP proxy authentication methods. See \fICURLOPT_PROXYAUTH(3)\fP
 .IP CURLOPT_SASL_AUTHZID
-SASL authorisation identity (identity to act as). See \fICURLOPT_SASL_AUTHZID(3)\fP
+SASL authorization identity (identity to act as). See \fICURLOPT_SASL_AUTHZID(3)\fP
 .IP CURLOPT_SASL_IR
 Enable SASL initial response. See \fICURLOPT_SASL_IR(3)\fP
 .IP CURLOPT_XOAUTH2_BEARER
@@ -664,6 +666,10 @@ File name with known hosts. See \fICURLOPT_SSH_KNOWNHOSTS(3)\fP
 Callback for known hosts handling. See \fICURLOPT_SSH_KEYFUNCTION(3)\fP
 .IP CURLOPT_SSH_KEYDATA
 Custom pointer to pass to ssh key callback. See \fICURLOPT_SSH_KEYDATA(3)\fP
+.IP CURLOPT_SSH_HOSTKEYFUNCTION
+Callback for checking host key handling. See \fICURLOPT_SSH_HOSTKEYFUNCTION(3)\fP
+.IP CURLOPT_SSH_HOSTKEYDATA
+Custom pointer to pass to ssh host key callback. See \fICURLOPT_SSH_HOSTKEYDATA(3)\fP
 .SH OTHER OPTIONS
 .IP CURLOPT_PRIVATE
 Private pointer to store. See \fICURLOPT_PRIVATE(3)\fP

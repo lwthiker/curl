@@ -99,6 +99,7 @@
 --interface                          7.3
 --ipv4 (-4)                          7.10.8
 --ipv6 (-6)                          7.10.8
+--json                               7.82.0
 --junk-session-cookies (-j)          7.9.7
 --keepalive-time                     7.18.0
 --key                                7.9.3
@@ -127,6 +128,7 @@
 --next (-:)                          7.36.0
 --no-alpn                            7.36.0
 --no-buffer (-N)                     6.5
+--no-clobber                         7.83.0
 --no-keepalive                       7.18.0
 --no-npn                             7.36.0
 --no-progress-meter                  7.67.0
@@ -184,12 +186,14 @@
 --quote (-Q)                         5.3
 --random-file                        7.7
 --range (-r)                         4.0
+--rate                               7.84.0
 --raw                                7.16.2
 --referer (-e)                       4.0
 --remote-header-name (-J)            7.20.0
 --remote-name (-O)                   4.0
 --remote-name-all                    7.19.0
 --remote-time (-R)                   7.9
+--remove-on-error                    7.83.0
 --request (-X)                       6.0
 --request-target                     7.55.0
 --resolve                            7.21.3

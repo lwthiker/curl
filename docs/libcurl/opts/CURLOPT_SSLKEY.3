@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -17,6 +17,8 @@
 .\" *
 .\" * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 .\" * KIND, either express or implied.
+.\" *
+.\" * SPDX-License-Identifier: curl
 .\" *
 .\" **************************************************************************
 .\"
@@ -34,9 +36,9 @@ Pass a pointer to a null-terminated string as parameter. The string should be
 the file name of your private key. The default format is "PEM" and can be
 changed with \fICURLOPT_SSLKEYTYPE(3)\fP.
 
-(iOS and Mac OS X only) This option is ignored if curl was built against
-Secure Transport. Secure Transport expects the private key to be already
-present in the keychain or PKCS#12 file containing the certificate.
+(Windows, iOS and Mac OS X) This option is ignored by Secure Transport and
+Schannel SSL backends because they expect the private key to be already present
+in the keychain or PKCS#12 file containing the certificate.
 
 The application does not have to keep the string around after setting this
 option.

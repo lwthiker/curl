@@ -6,7 +6,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -19,10 +19,12 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
+# SPDX-License-Identifier: curl
+#
 ###########################################################################
 set -eo pipefail
 
-./buildconf
+autoreconf -fi
 
 if [ "$T" = "coverage" ]; then
   ./configure --enable-debug --disable-shared --disable-threaded-resolver --enable-code-coverage --enable-werror --with-libssh2
@@ -42,13 +44,6 @@ if [ "$T" = "torture" ]; then
   make "TFLAGS=-n --shallow=20 -t $tests" test-nonflaky
 fi
 
-if [ "$T" = "events" ]; then
-  ./configure --enable-debug --disable-shared --disable-threaded-resolver --enable-code-coverage --enable-werror --with-libssh2 --with-openssl
-  make
-  tests="!TLS-SRP"
-  make "TFLAGS=-n -e $tests" test-nonflaky
-fi
-
 if [ "$T" = "debug" ]; then
   ./configure --enable-debug --enable-werror $C
   make
@@ -56,18 +51,6 @@ if [ "$T" = "debug" ]; then
   if [ -z $NOTESTS ]; then
     make test-nonflaky
   fi
-fi
-
-if [ "$T" = "debug-mesalink" ]; then
-  ./configure --enable-debug --enable-werror $C
-  make
-  make "TFLAGS=-n !313 !410 !3001" test-nonflaky
-fi
-
-if [ "$T" = "debug-rustls" ]; then
-  ./configure --enable-debug --enable-werror $C
-  make
-  make "TFLAGS=HTTPS !313" test-nonflaky
 fi
 
 if [ "$T" = "debug-bearssl" ]; then
@@ -106,55 +89,13 @@ if [ "$T" = "tidy" ]; then
   make tidy
 fi
 
-if [ "$T" = "iconv" ]; then
-  source scripts/zuul/iconv-env.sh
-  ./configure --enable-debug --enable-werror $C
-  make
-  make examples
-  make test-nonflaky
-fi
-
 if [ "$T" = "cmake" ]; then
-  cmake -H. -Bbuild -DCURL_WERROR=ON $C
+  mkdir -p build
+  cd ./build
+  cmake .. -DCURL_WERROR=ON $C
+  cd ..
   cmake --build build
   env TFLAGS="!1139 $TFLAGS" cmake --build build --target test-nonflaky
-fi
-
-if [ "$T" = "distcheck" ]; then
-  # find BOM markers and exit if we do
-  ! git grep `printf '\xef\xbb\xbf'`
-  ./configure --without-ssl
-  make
-  ./maketgz 99.98.97
-  # verify in-tree build - and install it
-  tar xf curl-99.98.97.tar.gz
-  cd curl-99.98.97
-  ./configure --prefix=$HOME/temp --without-ssl
-  make
-  make TFLAGS=1 test
-  make install
-  # basic check of the installed files
-  cd ..
-  bash scripts/installcheck.sh $HOME/temp
-  rm -rf curl-99.98.97
-  # verify out-of-tree build
-  tar xf curl-99.98.97.tar.gz
-  touch curl-99.98.97/docs/{cmdline-opts,libcurl}/Makefile.inc
-  mkdir build
-  cd build
-  ../curl-99.98.97/configure --without-ssl
-  make
-  make TFLAGS='-p 1 1139' test
-  # verify cmake build
-  cd ..
-  rm -rf curl-99.98.97
-  tar xf curl-99.98.97.tar.gz
-  cd curl-99.98.97
-  mkdir build
-  cd build
-  cmake ..
-  make
-  cd ../..
 fi
 
 if [ "$T" = "fuzzer" ]; then
@@ -167,10 +108,4 @@ if [ "$T" = "fuzzer" ]; then
   pushd /tmp/curl_fuzzer
   ./mainline.sh ${CURLSRC}
   popd
-fi
-
-if [ "$T" = "scan-build" ]; then
-  scan-build ./configure --enable-debug --enable-werror $C
-  scan-build --status-bugs make
-  scan-build --status-bugs make examples
 fi

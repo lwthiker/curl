@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 2021, 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -17,6 +17,8 @@
 #
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
+#
+# SPDX-License-Identifier: curl
 #
 ###########################################################################
 
@@ -30,8 +32,90 @@ commands:
     steps:
       - run:
           command: |
-            ./buildconf
+            autoreconf -fi
             ./configure --enable-warnings --enable-werror --with-openssl
+
+  configure-openssl-no-verbose:
+    steps:
+      - run:
+          command: |
+            autoreconf -fi
+            ./configure --disable-verbose --enable-werror --with-openssl
+
+  configure-no-proxy:
+    steps:
+      - run:
+          command: |
+            autoreconf -fi
+            ./configure --disable-proxy --enable-werror --with-openssl
+
+  install-cares:
+    steps:
+      - run:
+          command: |
+            sudo apt-get update && sudo apt-get install -y libc-ares-dev
+
+  install-libssh:
+    steps:
+      - run:
+          command: |
+            sudo apt-get update && sudo apt-get install -y libssh-dev
+
+  install-deps:
+    steps:
+      - run:
+          command: |
+            sudo apt-get update && sudo apt-get install -y libpsl-dev libbrotli-dev libzstd-dev zlib1g-dev
+
+  configure-libssh:
+    steps:
+      - run:
+          command: |
+            autoreconf -fi
+            ./configure --enable-warnings --enable-werror --with-openssl --with-libssh
+
+  install-wolfssl:
+    steps:
+      - run:
+          command: |
+            curl -LO https://github.com/wolfSSL/wolfssl/archive/v5.1.1-stable.tar.gz
+            tar -xzf v5.1.1-stable.tar.gz
+            cd wolfssl-5.1.1-stable
+            ./autogen.sh
+            ./configure --enable-tls13 --enable-all --enable-harden --prefix=$HOME/wssl
+            make && make install
+
+  install-wolfssh:
+    steps:
+      - run:
+          command: |
+            curl -LO https://github.com/wolfSSL/wolfssh/archive/v1.4.8-stable.tar.gz
+            tar -xzf v1.4.8-stable.tar.gz
+            cd wolfssh-1.4.8-stable
+            ./autogen.sh
+            ./configure --with-wolfssl=$HOME/wssl --prefix=$HOME/wssh --enable-scp --enable-sftp --disable-examples
+            make && make install
+
+  configure-cares:
+    steps:
+      - run:
+          command: |
+            autoreconf -fi
+            ./configure --enable-warnings --enable-werror --with-openssl --enable-ares
+
+  configure-wolfssh:
+    steps:
+      - run:
+          command: |
+            autoreconf -fi
+            LDFLAGS="-Wl,-rpath,$HOME/wssh/lib" ./configure --enable-warnings --enable-werror --with-wolfssl=$HOME/wssl --with-wolfssh=$HOME/wssh
+
+  configure-cares-debug:
+    steps:
+      - run:
+          command: |
+            autoreconf -fi
+            ./configure --enable-debug --enable-werror --with-openssl --enable-ares
 
   build:
     steps:
@@ -56,6 +140,51 @@ jobs:
       - build
       - test
 
+  no-verbose:
+    executor: ubuntu
+    steps:
+      - checkout
+      - install-deps
+      - configure-openssl-no-verbose
+      - build
+
+  wolfssh:
+    executor: ubuntu
+    steps:
+      - checkout
+      - install-deps
+      - install-wolfssl
+      - install-wolfssh
+      - configure-wolfssh
+      - build
+
+  no-proxy:
+    executor: ubuntu
+    steps:
+      - checkout
+      - install-deps
+      - configure-no-proxy
+      - build
+      - test
+
+  cares:
+    executor: ubuntu
+    steps:
+      - checkout
+      - install-cares
+      - configure-cares
+      - build
+      - test
+
+  libssh:
+    executor: ubuntu
+    steps:
+      - checkout
+      - install-libssh
+      - configure-libssh
+      - build
+      - test
+
   arm:
     machine:
       image: ubuntu-2004:202101-01
@@ -66,11 +195,46 @@ jobs:
       - build
       - test
 
+  arm-cares:
+    machine:
+      image: ubuntu-2004:202101-01
+    resource_class: arm.medium
+    steps:
+      - checkout
+      - install-cares
+      - configure-cares-debug
+      - build
+      - test
+
 workflows:
   x86-openssl:
     jobs:
       - basic
 
+  openssl-c-ares:
+    jobs:
+      - cares
+
+  openssl-libssh:
+    jobs:
+      - libssh
+
+  openssl-no-proxy:
+    jobs:
+      - no-proxy
+
+  openssl-no-verbose:
+    jobs:
+      - no-verbose
+
+  wolfssl-wolfssh:
+    jobs:
+      - wolfssh
+
   arm-openssl:
     jobs:
       - arm
+
+  arm-openssl-c-ares:
+    jobs:
+      - arm-cares

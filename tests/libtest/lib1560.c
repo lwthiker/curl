@@ -18,6 +18,8 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
+ * SPDX-License-Identifier: curl
+ *
  ***************************************************************************/
 
 /*
@@ -125,6 +127,13 @@ struct querycase {
   const char *out;
   unsigned int urlflags; /* pass to curl_url() */
   unsigned int qflags; /* pass to curl_url_get() */
+  CURLUcode ucode;
+};
+
+struct clearurlcase {
+  CURLUPart part;
+  const char *in;
+  const char *out;
   CURLUcode ucode;
 };
 
@@ -374,6 +383,13 @@ static const struct testcase get_parts_list[] ={
 
 static const struct urltestcase get_url_list[] = {
   /* percent encoded host names */
+  {"http://example.com%40127.0.0.1/", "", 0, 0, CURLUE_BAD_HOSTNAME},
+  {"http://example.com%21127.0.0.1/", "", 0, 0, CURLUE_BAD_HOSTNAME},
+  {"http://example.com%3f127.0.0.1/", "", 0, 0, CURLUE_BAD_HOSTNAME},
+  {"http://example.com%23127.0.0.1/", "", 0, 0, CURLUE_BAD_HOSTNAME},
+  {"http://example.com%3a127.0.0.1/", "", 0, 0, CURLUE_BAD_HOSTNAME},
+  {"http://example.com%09127.0.0.1/", "", 0, 0, CURLUE_BAD_HOSTNAME},
+  {"http://example.com%2F127.0.0.1/", "", 0, 0, CURLUE_BAD_HOSTNAME},
   {"https://%this", "https://%25this/", 0, 0, CURLUE_OK},
   {"https://h%c", "https://h%25c/", 0, 0, CURLUE_OK},
   {"https://%%%%%%", "https://%25%25%25%25%25%25/", 0, 0, CURLUE_OK},
@@ -1226,6 +1242,54 @@ static int get_nothing(void)
   return 0;
 }
 
+static const struct clearurlcase clear_url_list[] ={
+  {CURLUPART_SCHEME, "http", NULL, CURLUE_NO_SCHEME},
+  {CURLUPART_USER, "user", NULL, CURLUE_NO_USER},
+  {CURLUPART_PASSWORD, "password", NULL, CURLUE_NO_PASSWORD},
+  {CURLUPART_OPTIONS, "options", NULL, CURLUE_NO_OPTIONS},
+  {CURLUPART_HOST, "host", NULL, CURLUE_NO_HOST},
+  {CURLUPART_ZONEID, "eth0", NULL, CURLUE_NO_ZONEID},
+  {CURLUPART_PORT, "1234", NULL, CURLUE_NO_PORT},
+  {CURLUPART_PATH, "/hello", "/", CURLUE_OK},
+  {CURLUPART_QUERY, "a=b", NULL, CURLUE_NO_QUERY},
+  {CURLUPART_FRAGMENT, "anchor", NULL, CURLUE_NO_FRAGMENT},
+  {0, NULL, NULL, CURLUE_OK},
+};
+
+static int clear_url(void)
+{
+  CURLU *u = curl_url();
+  int i, error = 0;
+  if(u) {
+    char *p = NULL;
+    CURLUcode rc;
+
+    for(i = 0; clear_url_list[i].in && !error; i++) {
+      rc = curl_url_set(u, clear_url_list[i].part, clear_url_list[i].in, 0);
+      if(rc != CURLUE_OK)
+        fprintf(stderr, "unexpected return code line %u\n", __LINE__);
+
+      rc = curl_url_set(u, CURLUPART_URL, NULL, 0);
+      if(rc != CURLUE_OK)
+        fprintf(stderr, "unexpected return code line %u\n", __LINE__);
+
+      rc = curl_url_get(u, clear_url_list[i].part, &p, 0);
+      if(rc != clear_url_list[i].ucode || (clear_url_list[i].out &&
+         0 != strcmp(p, clear_url_list[i].out))) {
+
+        fprintf(stderr, "unexpected return code line %u\n", __LINE__);
+        error++;
+      }
+      if(rc == CURLUE_OK)
+        curl_free(p);
+    }
+  }
+
+  curl_url_cleanup(u);
+
+  return error;
+}
+
 int test(char *URL)
 {
   (void)URL; /* not used */
@@ -1250,6 +1314,9 @@ int test(char *URL)
 
   if(get_parts())
     return 4;
+
+  if(clear_url())
+    return 8;
 
   printf("success\n");
   return 0;

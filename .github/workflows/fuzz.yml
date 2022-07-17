@@ -1,3 +1,7 @@
+# Copyright (C) 2000 - 2022 Daniel Stenberg, <daniel@haxx.se>, et al.
+#
+# SPDX-License-Identifier: curl
+
 name: Fuzzer
 
 on:
@@ -5,11 +9,11 @@ on:
   # master branch
   push:
     branches:
-      - master
-      - '*/ci'
+    - master
+    - '*/ci'
   pull_request:
     branches:
-      - master
+    - master
 
 jobs:
   fuzzing:
@@ -29,7 +33,7 @@ jobs:
         dry-run: false
 
     - name: Upload Crash
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v3
       if: failure()
       with:
         name: artifacts

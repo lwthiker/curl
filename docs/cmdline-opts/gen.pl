@@ -6,7 +6,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -18,6 +18,8 @@
 #
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
+#
+# SPDX-License-Identifier: curl
 #
 ###########################################################################
 
@@ -104,7 +106,7 @@ sub printdesc {
         if($d =~ /^[^ ]/) {
             for my $k (keys %optlong) {
                 my $l = manpageify($k);
-                $d =~ s/--$k([^a-z0-9_-])/$l$1/;
+                $d =~ s/--$k([^a-z0-9_-])(\W)/$l$1$2/;
             }
         }
         # quote "bare" minuses in the output
@@ -113,6 +115,9 @@ sub printdesc {
         # handle single quotes first on the line
         $d =~ s/(\s*)\'/$1\\(aq/;
         print $d;
+    }
+    if($exam) {
+        print ".fi\n"; # fill-in
     }
 }
 
@@ -192,6 +197,8 @@ sub single {
     my $requires;
     my $category;
     my $seealso;
+    my $copyright;
+    my $spdx;
     my @examples; # there can be more than one
     my $magic; # cmdline special option
     my $line;
@@ -233,6 +240,12 @@ sub single {
         elsif(/^Example: *(.*)/i) {
             push @examples, $1;
         }
+        elsif(/^C: (.*)/i) {
+            $copyright=$1;
+        }
+        elsif(/^SPDX-License-Identifier: (.*)/i) {
+            $spdx=$1;
+        }
         elsif(/^Help: *(.*)/i) {
             ;
         }
@@ -255,6 +268,14 @@ sub single {
             }
             if(!$seealso) {
                 print STDERR "$f:$line:1:ERROR: no 'See-also:' field present\n";
+                return 2;
+            }
+            if(!$copyright) {
+                print STDERR "$f:$line:1:ERROR: no 'C:' field present\n";
+                return 2;
+            }
+            if(!$spdx) {
+                print STDERR "$f:$line:1:ERROR: no 'SPDX-License-Identifier:' field present\n";
                 return 2;
             }
             last;
@@ -346,7 +367,8 @@ sub single {
             my $l = manpageify($k);
             $mstr .= sprintf "%s$l", $mstr?" and ":"";
         }
-        push @foot, overrides($standalone, "This option overrides $mstr. ");
+        push @foot, overrides($standalone,
+                              "This option is mutually exclusive to $mstr. ");
     }
     if($examples[0]) {
         my $s ="";
@@ -456,6 +478,8 @@ sub listhelp {
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
+ *
+ * SPDX-License-Identifier: curl
  *
  ***************************************************************************/
 #include "tool_setup.h"

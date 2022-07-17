@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -17,6 +17,8 @@
 #
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
+#
+# SPDX-License-Identifier: curl
 #
 ###########################################################################
 # curl/libcurl CMake script
@@ -65,7 +67,7 @@ message(STATUS "curl version=[${CURL_VERSION}]")
 # SET(PACKAGE_STRING "curl-")
 # SET(PACKAGE_BUGREPORT "a suitable curl mailing list => https://curl.se/mail/")
 set(OPERATING_SYSTEM "${CMAKE_SYSTEM_NAME}")
-set(OS "\"${CMAKE_SYSTEM_NAME}\"")
+set(OS "\"${CMAKE_SYSTEM_NAME}${CURL_OS_SUFFIX}\"")
 
 include_directories(${CURL_SOURCE_DIR}/include)
 
@@ -109,7 +111,7 @@ option(ENABLE_CURLDEBUG "Set to ON to build with TrackMemory feature enabled" OF
 
 if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_CLANG)
   if(PICKY_COMPILER)
-    foreach(_CCOPT -pedantic -Wall -W -Wpointer-arith -Wwrite-strings -Wunused -Wshadow -Winline -Wnested-externs -Wmissing-declarations -Wmissing-prototypes -Wfloat-equal -Wsign-compare -Wundef -Wendif-labels -Wstrict-prototypes -Wdeclaration-after-statement -Wstrict-aliasing=3 -Wcast-align -Wtype-limits -Wold-style-declaration -Wmissing-parameter-type -Wempty-body -Wclobbered -Wignored-qualifiers -Wconversion -Wvla -Wdouble-promotion)
+    foreach(_CCOPT -pedantic -Wall -W -Wpointer-arith -Wwrite-strings -Wunused -Wshadow -Winline -Wnested-externs -Wmissing-declarations -Wmissing-prototypes -Wfloat-equal -Wsign-compare -Wundef -Wendif-labels -Wstrict-prototypes -Wdeclaration-after-statement -Wstrict-aliasing=3 -Wcast-align -Wtype-limits -Wold-style-declaration -Wmissing-parameter-type -Wempty-body -Wclobbered -Wignored-qualifiers -Wconversion -Wvla -Wdouble-promotion -Wenum-conversion -Warith-conversion)
       # surprisingly, CHECK_C_COMPILER_FLAG needs a new variable to store each new
       # test result in.
       string(MAKE_C_IDENTIFIER "OPT${_CCOPT}" _optvarname)
@@ -334,13 +336,6 @@ check_library_exists_concat("${CMAKE_DL_LIBS}" dlopen HAVE_LIBDL)
 check_library_exists_concat("socket" connect      HAVE_LIBSOCKET)
 check_library_exists("c" gethostbyname "" NOT_NEED_LIBNSL)
 
-# Yellowtab Zeta needs different libraries than BeOS 5.
-if(BEOS)
-  set(NOT_NEED_LIBNSL 1)
-  check_library_exists_concat("bind" gethostbyname HAVE_LIBBIND)
-  check_library_exists_concat("bnetapi" closesocket HAVE_LIBBNETAPI)
-endif()
-
 if(NOT NOT_NEED_LIBNSL)
   check_library_exists_concat("nsl"    gethostbyname  HAVE_LIBNSL)
 endif()
@@ -563,6 +558,16 @@ if(USE_QUICHE)
   cmake_pop_check_state()
 endif()
 
+option(USE_MSH3 "Use msquic library for HTTP/3 support" OFF)
+if(USE_MSH3)
+  if(USE_NGTCP2 OR USE_QUICHE)
+    message(FATAL_ERROR "Only one HTTP/3 backend can be selected!")
+  endif()
+  set(USE_MSH3 ON)
+  include_directories(${MSH3_INCLUDE_DIRS})
+  list(APPEND CURL_LIBS ${MSH3_LIBRARIES})
+endif()
+
 if(NOT CURL_DISABLE_LDAP)
   if(WIN32)
     option(USE_WIN32_LDAP "Use Windows LDAP implementation" ON)
@@ -672,11 +677,12 @@ if(NOT CURL_DISABLE_LDAPS)
   check_include_file_concat("ldapssl.h"  HAVE_LDAPSSL_H)
 endif()
 
-# Check for idn
+# Check for idn2
 option(USE_LIBIDN2 "Use libidn2 for IDN support" ON)
-set(HAVE_LIBIDN2 OFF)
 if(USE_LIBIDN2)
   check_library_exists_concat("idn2" idn2_lookup_ul HAVE_LIBIDN2)
+else()
+  set(HAVE_LIBIDN2 OFF)
 endif()
 
 if(WIN32)
@@ -736,6 +742,31 @@ if(CURL_ZSTD)
     set(HAVE_ZSTD ON)
     list(APPEND CURL_LIBS ${Zstd_LIBRARIES})
     include_directories(${Zstd_INCLUDE_DIRS})
+  endif()
+endif()
+
+#libpsl
+option(CURL_USE_LIBPSL "Use libPSL" ON)
+mark_as_advanced(CURL_USE_LIBPSL)
+set(USE_LIBPSL OFF)
+set(HAVE_LIBPSL OFF)
+set(HAVE_LIBSPSL_H OFF)
+
+if(CURL_USE_LIBPSL)
+  find_package(LibPSL)
+  if(LIBPSL_FOUND)
+    list(APPEND CURL_LIBS ${LIBPSL_LIBRARY})
+    set(CMAKE_REQUIRED_LIBRARIES ${LIBPSL_LIBRARY})
+    list(APPEND CMAKE_REQUIRED_INCLUDES "${LIBPSL_INCLUDE_DIR}")
+    include_directories("${LIBPSL_INCLUDE_DIR}")
+    set(HAVE_LIBPSL ON)
+    set(USE_LIBPSL ON)
+
+    # find_package has already found the headers
+    set(HAVE_LIBPSL_H ON)
+    set(CURL_INCLUDES ${CURL_INCLUDES} "${LIBPSL_INCLUDE_DIR}/libpsl.h")
+    set(CURL_TEST_DEFINES "${CURL_TEST_DEFINES} -DHAVE_LIBPSL_H")
+    unset(CMAKE_REQUIRED_LIBRARIES)
   endif()
 endif()
 
@@ -1024,8 +1055,10 @@ if(HAVE_SIZEOF_LONG_LONG)
   set(HAVE_LL 1)
 endif()
 
-find_file(RANDOM_FILE urandom /dev)
-mark_as_advanced(RANDOM_FILE)
+if(NOT CMAKE_CROSSCOMPILING)
+  find_file(RANDOM_FILE urandom /dev)
+  mark_as_advanced(RANDOM_FILE)
+endif()
 
 # Check for some functions that are used
 if(HAVE_LIBWS2_32)
@@ -1034,6 +1067,7 @@ elseif(HAVE_LIBSOCKET)
   set(CMAKE_REQUIRED_LIBRARIES socket)
 endif()
 
+check_symbol_exists(fchmod        "${CURL_INCLUDES}" HAVE_FCHMOD)
 check_symbol_exists(basename      "${CURL_INCLUDES}" HAVE_BASENAME)
 check_symbol_exists(socket        "${CURL_INCLUDES}" HAVE_SOCKET)
 check_symbol_exists(select        "${CURL_INCLUDES}" HAVE_SELECT)
