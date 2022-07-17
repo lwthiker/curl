@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -17,6 +17,8 @@
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
+ *
+ * SPDX-License-Identifier: curl
  *
  ***************************************************************************/
 #include "tool_setup.h"
@@ -84,15 +86,10 @@ int parseconfig(const char *filename, struct GlobalConfig *global)
   int rc = 0;
   struct OperationConfig *operation = global->last;
   char *pathalloc = NULL;
-#ifdef WIN32
-#define DOTSCORE TRUE /* look for underscore-prefixed name too */
-#else
-#define DOTSCORE FALSE
-#endif
 
   if(!filename) {
     /* NULL means load .curlrc from homedir! */
-    char *curlrc = findfile(".curlrc", DOTSCORE);
+    char *curlrc = findfile(".curlrc", CURLRC_DOTSCORE);
     if(curlrc) {
       file = fopen(curlrc, FOPEN_READTEXT);
       if(!file) {

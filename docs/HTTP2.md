@@ -77,7 +77,7 @@ To take advantage of multiplexing, you need to use the multi interface and set
 attempt to re-use existing HTTP/2 connections and just add a new stream over
 that when doing subsequent parallel requests.
 
-While libcurl sets up a connection to a HTTP server there is a period during
+While libcurl sets up a connection to an HTTP server there is a period during
 which it does not know if it can pipeline or do multiplexing and if you add new
 transfers in that period, libcurl will default to start new connections for
 those transfers. With the new option `CURLOPT_PIPEWAIT` (added in 7.43.0), you
@@ -118,4 +118,4 @@ can use that hint to create a new connection asynchronously. For libcurl, we
 may introduce a way to bring such clues to the application and/or let a
 subsequent request use the alternate route automatically.
 
-[Detailed in RFC 7838](https://tools.ietf.org/html/rfc7838)
+[Detailed in RFC 7838](https://datatracker.ietf.org/doc/html/rfc7838)

@@ -5,7 +5,7 @@
 The official "URL syntax" is primarily defined in these two different
 specifications:
 
- - [RFC 3986](https://tools.ietf.org/html/rfc3986) (although URL is called
+ - [RFC 3986](https://datatracker.ietf.org/doc/html/rfc3986) (although URL is called
    "URI" in there)
  - [The WHATWG URL Specification](https://url.spec.whatwg.org/)
 
@@ -153,7 +153,7 @@ since it often means passing around the password in plain text and is thus a
 security risk.
 
 URLs for IMAP, POP3 and SMTP also support *login options* as part of the
-userinfo field. they are provided as a semicolon after the password and then
+userinfo field. They are provided as a semicolon after the password and then
 the options.
 
 ## Hostname
@@ -220,7 +220,7 @@ directory listing for the root / home directory will be returned.
 
 FTP servers typically put the user in its "home directory" after login, which
 then differs between users. To explicitly specify the root directory of an FTP
-server start the path with double slash `//` or `/%2f` (2F is the hexadecimal
+server, start the path with double slash `//` or `/%2f` (2F is the hexadecimal
 value of the ascii code for the slash).
 
 ## FILE
@@ -317,13 +317,13 @@ Name, Attributes, Scope, Filter and Extension for a LDAP search. Each field is
 separated by a question mark and when that field is not required an empty
 string with the question mark separator should be included.
 
-Search for the DN as `My Organisation`:
+Search for the DN as `My Organization`:
 
-    ldap://ldap.example.com/o=My%20Organisation
+    ldap://ldap.example.com/o=My%20Organization
 
 the same search but will only return postalAddress attributes:
 
-    ldap://ldap.example.com/o=My%20Organisation?postalAddress
+    ldap://ldap.example.com/o=My%20Organization?postalAddress
 
 Search for an empty DN and request information about the
 `rootDomainNamingContext` attribute for an Active Directory server:
@@ -331,7 +331,7 @@ Search for an empty DN and request information about the
     ldap://ldap.example.com/?rootDomainNamingContext
 
 For more information about the individual components of a LDAP URL please
-see [RFC 4516](https://tools.ietf.org/html/rfc4516).
+see [RFC 4516](https://datatracker.ietf.org/doc/html/rfc4516).
 
 ## POP3
 

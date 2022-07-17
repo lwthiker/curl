@@ -1,3 +1,7 @@
+# Copyright (C) 2000 - 2022 Daniel Stenberg, <daniel@haxx.se>, et al.
+#
+# SPDX-License-Identifier: curl
+
 name: macOS
 
 on:
@@ -31,6 +35,14 @@ jobs:
         - name: libssh2
           install: nghttp2 libssh2
           configure: --enable-debug --with-libssh2 --without-ssl
+          macosx-version-min: 10.9
+        - name: libssh-c-ares
+          install: openssl nghttp2 libssh
+          configure: --enable-debug --with-libssh --with-openssl=/usr/local/opt/openssl --enable-ares
+          macosx-version-min: 10.9
+        - name: libssh
+          install: openssl nghttp2 libssh
+          configure: --enable-debug --with-libssh --with-openssl=/usr/local/opt/openssl
           macosx-version-min: 10.9
         - name: c-ares
           install: nghttp2
@@ -76,9 +88,15 @@ jobs:
     - run: brew update && for i in 1 2 3; do brew bundle install --no-lock --file /tmp/Brewfile && break || sleep 1; done
       name: 'brew install'
 
-    - uses: actions/checkout@v2
+    - run: python3 -m pip install impacket
+      name: 'pip3 install'
 
-    - run: ./buildconf && ./configure --enable-warnings --enable-werror ${{ matrix.build.configure }}
+    - uses: actions/checkout@v3
+
+    - run: autoreconf -fi
+      name: 'autoreconf'
+
+    - run: ./configure --enable-warnings --enable-werror ${{ matrix.build.configure }}
       name: 'configure'
       env:
         # -Wvla is caused by brotli
@@ -86,6 +104,9 @@ jobs:
 
     - run: make V=1
       name: 'make'
+
+    - run: make V=1 examples
+      name: 'make examples'
 
     - run: make V=1 test-ci
       name: 'test'
@@ -123,9 +144,12 @@ jobs:
     - run: brew update && brew bundle install --no-lock --file /tmp/Brewfile
       name: 'brew install'
 
-    - uses: actions/checkout@v2
+    - run: python3 -m pip install impacket
+      name: 'pip3 install'
 
-    - run: cmake -H. -Bbuild -DCURL_WERROR=ON -DPICKY_COMPILER=ON ${{ matrix.build.generate }}
+    - uses: actions/checkout@v3
+
+    - run: cmake -S. -Bbuild -DCURL_WERROR=ON -DPICKY_COMPILER=ON ${{ matrix.build.generate }}
       name: 'cmake generate'
 
     - run: cmake --build build

@@ -1,6 +1,8 @@
+c: Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+SPDX-License-Identifier: curl
 Long: data-urlencode
 Arg: <data>
-Help: HTTP POST data url encoded
+Help: HTTP POST data URL encoded
 Protocols: HTTP
 See-also: data data-raw
 Added: 7.18.0

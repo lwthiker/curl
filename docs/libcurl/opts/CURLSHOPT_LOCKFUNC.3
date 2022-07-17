@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -17,6 +17,8 @@
 .\" *
 .\" * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 .\" * KIND, either express or implied.
+.\" *
+.\" * SPDX-License-Identifier: curl
 .\" *
 .\" **************************************************************************
 .TH CURLSHOPT_LOCKFUNC 3 "8 Aug 2003" "libcurl 7.10.7" "libcurl Manual"
@@ -34,7 +36,7 @@ CURLSHcode curl_share_setopt(CURLSH *share, CURLSHOPT_LOCKFUNC, lockcb);
 .SH DESCRIPTION
 Set a mutex lock callback for the share object, to allow it to get used by
 multiple threads concurrently. There's a corresponding
-\fICURLSHOPT_UNLOCKFUNC(3)\fP callback called when the mutex is again relased.
+\fICURLSHOPT_UNLOCKFUNC(3)\fP callback called when the mutex is again released.
 
 The \fIlockcb\fP argument must be a pointer to a function matching the
 prototype shown above. The arguments to the callback are:
@@ -53,7 +55,7 @@ This pointer is not used by libcurl itself.
 All
 .SH EXAMPLE
 .nf
-  CURLSHcode sh
+  CURLSHcode sh;
   share = curl_share_init();
   sh = curl_share_setopt(share, CURLSHOPT_LOCKFUNC, mutex_lock);
   if(sh)

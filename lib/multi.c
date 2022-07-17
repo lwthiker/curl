@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -17,6 +17,8 @@
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
+ *
+ * SPDX-License-Identifier: curl
  *
  ***************************************************************************/
 
@@ -118,7 +120,7 @@ static void init_completed(struct Curl_easy *data)
 
   /* Important: reset the conn pointer so that we don't point to memory
      that could be freed anytime */
-  Curl_detach_connnection(data);
+  Curl_detach_connection(data);
   Curl_expire_clear(data); /* stop all timers */
 }
 
@@ -636,7 +638,7 @@ static CURLcode multi_done(struct Curl_easy *data,
   process_pending_handles(data->multi); /* connection / multiplex */
 
   CONNCACHE_LOCK(data);
-  Curl_detach_connnection(data);
+  Curl_detach_connection(data);
   if(CONN_INUSE(conn)) {
     /* Stop if still used. */
     CONNCACHE_UNLOCK(data);
@@ -688,16 +690,10 @@ static CURLcode multi_done(struct Curl_easy *data,
 #endif
      ) || conn->bits.close
        || (premature && !(conn->handler->flags & PROTOPT_STREAM))) {
-    CURLcode res2;
     connclose(conn, "disconnecting");
     Curl_conncache_remove_conn(data, conn, FALSE);
     CONNCACHE_UNLOCK(data);
-    res2 = Curl_disconnect(data, conn, premature);
-
-    /* If we had an error already, make sure we return that one. But
-       if we got a new error, return that. */
-    if(!result && res2)
-      result = res2;
+    Curl_disconnect(data, conn, premature);
   }
   else {
     char buffer[256];
@@ -710,14 +706,15 @@ static CURLcode multi_done(struct Curl_easy *data,
       conn->bits.conn_to_host ? conn->conn_to_host.dispname :
       conn->host.dispname;
     /* create string before returning the connection */
+    long connection_id = conn->connection_id;
     msnprintf(buffer, sizeof(buffer),
               "Connection #%ld to host %s left intact",
-              conn->connection_id, host);
+              connection_id, host);
     /* the connection is no longer in use by this transfer */
     CONNCACHE_UNLOCK(data);
     if(Curl_conncache_return_conn(data, conn)) {
       /* remember the most recently used connection */
-      data->state.lastconnect_id = conn->connection_id;
+      data->state.lastconnect_id = connection_id;
       infof(data, "%s", buffer);
     }
     else
@@ -725,7 +722,6 @@ static CURLcode multi_done(struct Curl_easy *data,
   }
 
   Curl_safefree(data->state.buffer);
-  Curl_free_request_state(data);
   return result;
 }
 
@@ -831,7 +827,7 @@ CURLMcode curl_multi_remove_handle(struct Curl_multi *multi,
                                       that vanish with this handle */
 
   /* Remove the association between the connection and the handle */
-  Curl_detach_connnection(data);
+  Curl_detach_connection(data);
 
   if(data->state.lastconnect_id != -1) {
     /* Mark any connect-only connection for closure */
@@ -906,12 +902,12 @@ bool Curl_multiplex_wanted(const struct Curl_multi *multi)
 }
 
 /*
- * Curl_detach_connnection() removes the given transfer from the connection.
+ * Curl_detach_connection() removes the given transfer from the connection.
  *
  * This is the only function that should clear data->conn. This will
  * occasionally be called with the data->conn pointer already cleared.
  */
-void Curl_detach_connnection(struct Curl_easy *data)
+void Curl_detach_connection(struct Curl_easy *data)
 {
   struct connectdata *conn = data->conn;
   if(conn) {
@@ -923,11 +919,11 @@ void Curl_detach_connnection(struct Curl_easy *data)
 }
 
 /*
- * Curl_attach_connnection() attaches this transfer to this connection.
+ * Curl_attach_connection() attaches this transfer to this connection.
  *
  * This is the only function that should assign data->conn
  */
-void Curl_attach_connnection(struct Curl_easy *data,
+void Curl_attach_connection(struct Curl_easy *data,
                              struct connectdata *conn)
 {
   DEBUGASSERT(!data->conn);
@@ -1319,6 +1315,8 @@ static CURLMcode multi_wait(struct Curl_multi *multi,
 #else
     pollrc = Curl_poll(ufds, nfds, timeout_ms); /* wait... */
 #endif
+    if(pollrc < 0)
+      return CURLM_UNRECOVERABLE_POLL;
 
     if(pollrc > 0) {
       retcode = pollrc;
@@ -1547,7 +1545,7 @@ CURLMcode Curl_multi_add_perform(struct Curl_multi *multi,
 
     /* take this handle to the perform state right away */
     multistate(data, MSTATE_PERFORMING);
-    Curl_attach_connnection(data, conn);
+    Curl_attach_connection(data, conn);
     k->keepon |= KEEP_RECV; /* setup to receive! */
   }
   return rc;
@@ -1760,6 +1758,10 @@ CURLcode Curl_preconnect(struct Curl_easy *data)
   return CURLE_OK;
 }
 
+static void set_in_callback(struct Curl_multi *multi, bool value)
+{
+  multi->in_callback = value;
+}
 
 static CURLMcode multi_runsingle(struct Curl_multi *multi,
                                  struct curltime *nowp,
@@ -1796,7 +1798,7 @@ static CURLMcode multi_runsingle(struct Curl_multi *multi,
     rc = CURLM_OK;
 
     if(multi_ischanged(multi, TRUE)) {
-      DEBUGF(infof(data, "multi changed, check CONNECT_PEND queue!"));
+      DEBUGF(infof(data, "multi changed, check CONNECT_PEND queue"));
       process_pending_handles(multi); /* multiplexed */
     }
 
@@ -2170,8 +2172,8 @@ static CURLMcode multi_runsingle(struct Curl_multi *multi,
           Curl_posttransfer(data);
           drc = multi_done(data, result, FALSE);
 
-          /* When set to retry the connection, we must to go back to
-           * the CONNECT state */
+          /* When set to retry the connection, we must go back to the CONNECT
+           * state */
           if(newurl) {
             if(!drc || (drc == CURLE_SEND_ERROR)) {
               follow = FOLLOW_RETRY;
@@ -2383,7 +2385,7 @@ static CURLMcode multi_runsingle(struct Curl_multi *multi,
         CURLcode ret = Curl_retry_request(data, &newurl);
 
         if(!ret) {
-          infof(data, "Downgrades to HTTP/1.1!");
+          infof(data, "Downgrades to HTTP/1.1");
           streamclose(data->conn, "Disconnect HTTP/2 for HTTP/1");
           data->state.httpwant = CURL_HTTP_VERSION_1_1;
           /* clear the error message bit too as we ignore the one we got */
@@ -2561,7 +2563,7 @@ static CURLMcode multi_runsingle(struct Curl_multi *multi,
             /* This is where we make sure that the conn pointer is reset.
                We don't have to do this in every case block above where a
                failure is detected */
-            Curl_detach_connnection(data);
+            Curl_detach_connection(data);
 
             /* remove connection from cache */
             Curl_conncache_remove_conn(data, conn, TRUE);
@@ -2873,8 +2875,10 @@ static CURLMcode singlesocket(struct Curl_multi *multi,
       continue;
 
     if(multi->socket_cb) {
+      set_in_callback(multi, TRUE);
       rc = multi->socket_cb(data, s, comboaction, multi->socket_userp,
                             entry->socketp);
+      set_in_callback(multi, FALSE);
       if(rc == -1) {
         multi->dead = TRUE;
         return CURLM_ABORTED_BY_CALLBACK;
@@ -2915,8 +2919,10 @@ static CURLMcode singlesocket(struct Curl_multi *multi,
         entry->readers--;
       if(!entry->users) {
         if(multi->socket_cb) {
+          set_in_callback(multi, TRUE);
           rc = multi->socket_cb(data, s, CURL_POLL_REMOVE,
                                 multi->socket_userp, entry->socketp);
+          set_in_callback(multi, FALSE);
           if(rc == -1) {
             multi->dead = TRUE;
             return CURLM_ABORTED_BY_CALLBACK;
@@ -2970,9 +2976,12 @@ void Curl_multi_closed(struct Curl_easy *data, curl_socket_t s)
 
       if(entry) {
         int rc = 0;
-        if(multi->socket_cb)
+        if(multi->socket_cb) {
+          set_in_callback(multi, TRUE);
           rc = multi->socket_cb(data, s, CURL_POLL_REMOVE,
                                 multi->socket_userp, entry->socketp);
+          set_in_callback(multi, FALSE);
+        }
 
         /* now remove it from the socket hash */
         sh_delentry(entry, &multi->sockhash, s);
@@ -3344,7 +3353,9 @@ CURLMcode Curl_update_timer(struct Curl_multi *multi)
       multi->timer_lastcall = none;
       /* there's no timeout now but there was one previously, tell the app to
          disable it */
+      set_in_callback(multi, TRUE);
       rc = multi->timer_cb(multi, -1, multi->timer_userp);
+      set_in_callback(multi, FALSE);
       if(rc == -1) {
         multi->dead = TRUE;
         return CURLM_ABORTED_BY_CALLBACK;
@@ -3363,7 +3374,9 @@ CURLMcode Curl_update_timer(struct Curl_multi *multi)
 
   multi->timer_lastcall = multi->timetree->key;
 
+  set_in_callback(multi, TRUE);
   rc = multi->timer_cb(multi, timeout_ms, multi->timer_userp);
+  set_in_callback(multi, FALSE);
   if(rc == -1) {
     multi->dead = TRUE;
     return CURLM_ABORTED_BY_CALLBACK;
@@ -3561,9 +3574,6 @@ CURLMcode curl_multi_assign(struct Curl_multi *multi, curl_socket_t s,
                             void *hashp)
 {
   struct Curl_sh_entry *there = NULL;
-
-  if(multi->in_callback)
-    return CURLM_RECURSIVE_API_CALL;
 
   there = sh_getentry(&multi->sockhash, s);
 

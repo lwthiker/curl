@@ -1,3 +1,5 @@
+c: Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
+SPDX-License-Identifier: curl
 Long: key
 Arg: <key>
 Protocols: TLS SSH
@@ -17,5 +19,10 @@ PKCS#11 device. A string beginning with "pkcs11:" will be interpreted as a
 PKCS#11 URI. If a PKCS#11 URI is provided, then the --engine option will be set
 as "pkcs11" if none was provided and the --key-type option will be set as
 "ENG" if none was provided.
+
+If curl is built against Secure Transport or Schannel then this option is
+ignored for TLS protocols (HTTPS, etc). Those backends expect the private key
+to be already present in the keychain or PKCS#12 file containing the
+certificate.
 
 If this option is used several times, the last one will be used.

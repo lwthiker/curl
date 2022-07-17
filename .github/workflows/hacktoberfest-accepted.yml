@@ -1,12 +1,16 @@
+# Copyright (C) 2000 - 2022 Daniel Stenberg, <daniel@haxx.se>, et al.
+#
+# SPDX-License-Identifier: curl
+
 name: Hacktoberfest
 
 on:
   # run for all pushes to master branch
   push:
     branches:
-      - master
+    - master
 
-permissions: 
+permissions:
   # requires issues AND pull-requests write permissions to edit labels on PRs!
   issues: write
   pull-requests: write
@@ -17,11 +21,11 @@ jobs:
   merged:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 100
 
-      - name: Check wether repo participates in Hacktoberfest
+      - name: Check whether repo participates in Hacktoberfest
         run: |
           gh config set prompt disabled && echo "::set-output name=label::$(
             gh repo view --json repositoryTopics --jq '.repositoryTopics[].name' | grep '^hacktoberfest$')"

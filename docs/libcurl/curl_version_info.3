@@ -5,7 +5,7 @@
 .\" *                            | (__| |_| |  _ <| |___
 .\" *                             \___|\___/|_| \_\_____|
 .\" *
-.\" * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" * Copyright (C) 1998 - 2022, Daniel Stenberg, <daniel@haxx.se>, et al.
 .\" *
 .\" * This software is licensed as described in the file COPYING, which
 .\" * you should have received as part of this distribution. The terms
@@ -18,11 +18,13 @@
 .\" * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 .\" * KIND, either express or implied.
 .\" *
+.\" * SPDX-License-Identifier: curl
+.\" *
 .\" **************************************************************************
 .\"
 .TH curl_version_info 3 "2 Nov 2014" "libcurl 7.40.0" "libcurl Manual"
 .SH NAME
-curl_version_info - returns run-time libcurl version info
+curl_version_info - returns runtime libcurl version info
 .SH SYNOPSIS
 .nf
 #include <curl/curl.h>
@@ -172,8 +174,8 @@ supports IPv6
 .IP CURL_VERSION_KERBEROS4
 supports Kerberos V4 (when using FTP). Legacy bit. Deprecated since 7.33.0.
 .IP CURL_VERSION_KERBEROS5
-supports Kerberos V5 authentication for FTP, IMAP, POP3, SMTP and SOCKSv5 proxy
-(Added in 7.40.0)
+supports Kerberos V5 authentication for FTP, IMAP, LDAP, POP3, SMTP and
+SOCKSv5 proxy. (Added in 7.40.0)
 .IP CURL_VERSION_LARGEFILE
 libcurl was built with support for large files. (Added in 7.11.1)
 .IP CURL_VERSION_UNICODE
@@ -204,6 +206,10 @@ libcurl was built with support for SSPI. This is only available on Windows and
 makes libcurl use Windows-provided functions for Kerberos, NTLM, SPNEGO and
 Digest authentication. It also allows libcurl to use the current user
 credentials without the app having to pass them on. (Added in 7.13.2)
+.IP CURL_VERSION_THREADSAFE
+libcurl was built with thread-safety support (Atomic or SRWLOCK) to protect
+curl initialisation. (Added in 7.84.0)
+See \fIlibcurl-thread(3)\fP
 .IP CURL_VERSION_TLSAUTH_SRP
 libcurl was built with support for TLS-SRP (in one or more of the built-in TLS
 backends). (Added in 7.21.4)

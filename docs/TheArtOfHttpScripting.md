@@ -30,7 +30,7 @@
  request a particular action, and then the server replies a few text lines
  before the actual requested content is sent to the client.
 
- The client, curl, sends a HTTP request. The request contains a method (like
+ The client, curl, sends an HTTP request. The request contains a method (like
  GET, POST, HEAD etc), a number of request headers and sometimes a request
  body. The HTTP server responds with a status line (indicating if things went
  well), response headers and most often also a response body. The "body" part
@@ -59,7 +59,7 @@
  want to know the amount of milliseconds between two points in a transfer. For
  those, and other similar situations, the
  [`--trace-time`](https://curl.se/docs/manpage.html#--trace-time) option
- is what you need. it will prepend the time to each trace output line:
+ is what you need. It will prepend the time to each trace output line:
 
     curl --trace-ascii d.txt --trace-time http://example.com/
 
@@ -103,7 +103,7 @@
  The port number you specify in the URL is the number that the server uses to
  offer its services. Sometimes you may use a proxy, and then you may
  need to specify that proxy's port number separately from what curl needs to
- connect to the server. Like when using a HTTP proxy on port 4321:
+ connect to the server. Like when using an HTTP proxy on port 4321:
 
     curl --proxy http://proxy.example.org:4321 http://remote.example.org/
 
@@ -166,7 +166,7 @@
 
  A single curl command line may involve one or many URLs. The most common case
  is probably to just use one, but you can specify any amount of URLs. Yes
- any. No limits. you will then get requests repeated over and over for all the
+ any. No limits. You will then get requests repeated over and over for all the
  given URLs.
 
  Example, send two GETs:
@@ -207,7 +207,7 @@
 
 ## Forms explained
 
- Forms are the general way a website can present a HTML page with fields for
+ Forms are the general way a website can present an HTML page with fields for
  the user to enter data in, and then press some kind of 'OK' or 'Submit'
  button to get that data sent to the server. The server then typically uses
  the posted data to decide how to act. Like using the entered words to search
@@ -270,7 +270,7 @@
  And to use curl to post this form with the same data filled in as before, we
  could do it like:
 
-    curl --data "birthyear=1905&press=%20OK%20" http://www.example.com/when.cgi
+    curl --data "birthyear=1905&press=%20OK%20" http://www.example.com/when/junk.cgi
 
  This kind of POST will use the Content-Type
  `application/x-www-form-urlencoded` and is the most widely used POST kind.
@@ -336,9 +336,9 @@
 
 ## Figure Out What A POST Looks Like
 
- When you are about fill in a form and send to a server by using curl instead
- of a browser, you are of course interested in sending a POST exactly the way
- your browser does.
+ When you are about to fill in a form and send it to a server by using curl
+ instead of a browser, you are of course interested in sending a POST exactly
+ the way your browser does.
 
  An easy way to get to see this, is to save the HTML page with the form on
  your local disk, modify the 'method' to a GET, and press the submit button
@@ -351,11 +351,11 @@
 
 ## PUT
 
- Perhaps the best way to upload data to a HTTP server is to use PUT. Then
+ Perhaps the best way to upload data to an HTTP server is to use PUT. Then
  again, this of course requires that someone put a program or script on the
- server end that knows how to receive a HTTP PUT stream.
+ server end that knows how to receive an HTTP PUT stream.
 
- Put a file to a HTTP server with curl:
+ Put a file to an HTTP server with curl:
 
     curl --upload-file uploadfile http://www.example.com/receive.cgi
 
@@ -386,8 +386,8 @@
 
 ## Proxy Authentication
 
- Sometimes your HTTP access is only available through the use of a HTTP
- proxy. This seems to be especially common at various companies. A HTTP proxy
+ Sometimes your HTTP access is only available through the use of an HTTP
+ proxy. This seems to be especially common at various companies. An HTTP proxy
  may require its own user and password to allow the client to get through to
  the Internet. To specify those with curl, run something like:
 
@@ -416,7 +416,7 @@
 
 ## Referer
 
- A HTTP request may include a 'referer' field (yes it is misspelled), which
+ An HTTP request may include a 'referer' field (yes it is misspelled), which
  can be used to tell from which URL the client got to this particular
  resource. Some programs/scripts check the referer field of requests to verify
  that this was not arriving from an external site or an unknown page. While
@@ -435,7 +435,7 @@
  applications use this information to decide how to display pages. Silly web
  programmers try to make different pages for users of different browsers to
  make them look the best possible for their particular browsers. They usually
- also do different kinds of javascript, vbscript etc.
+ also do different kinds of JavaScript, VBScript etc.
 
  At times, you will see that getting a page with curl will not return the same
  page that you see when getting the page with your browser. Then you know it
@@ -471,15 +471,15 @@
  If you use curl to POST to a site that immediately redirects you to another
  page, you can safely use
  [`--location`](https://curl.se/docs/manpage.html#-L) (`-L`) and
- `--data`/`--form` together. curl will only use POST in the first request, and
+ `--data`/`--form` together. Curl will only use POST in the first request, and
  then revert to GET in the following operations.
 
 ## Other redirects
 
- Browser typically support at least two other ways of redirects that curl
+ Browsers typically support at least two other ways of redirects that curl
  does not: first the html may contain a meta refresh tag that asks the browser
  to load a specific URL after a set number of seconds, or it may use
- javascript to do it.
+ JavaScript to do it.
 
 # Cookies
 
@@ -560,7 +560,7 @@
 
  Curl supports encrypted fetches when built to use a TLS library and it can be
  built to use one out of a fairly large set of libraries - `curl -V` will show
- which one your curl was built to use (if any!). To get a page from a HTTPS
+ which one your curl was built to use (if any!). To get a page from an HTTPS
  server, simply run curl like:
 
     curl https://secure.example.com
@@ -572,7 +572,7 @@
  side certificates. All certificates are locked with a pass phrase, which you
  need to enter before the certificate can be used by curl. The pass phrase
  can be specified on the command line or if not, entered interactively when
- curl queries for it. Use a certificate with curl on a HTTPS server like:
+ curl queries for it. Use a certificate with curl on an HTTPS server like:
 
     curl --cert mycert.pem https://secure.example.com
 
@@ -648,13 +648,13 @@
  make sure you got there through their login page) so you should make a habit
  of first getting the login-form page to capture the cookies set there.
 
- Some web-based login systems feature various amounts of javascript, and
+ Some web-based login systems feature various amounts of JavaScript, and
  sometimes they use such code to set or modify cookie contents. Possibly they
  do that to prevent programmed logins, like this manual describes how to...
  Anyway, if reading the code is not enough to let you repeat the behavior
  manually, capturing the HTTP requests done by your browsers and analyzing the
  sent cookies is usually a working method to work out how to shortcut the
- javascript need.
+ JavaScript need.
 
  In the actual `<form>` tag for the login, lots of sites fill-in
  random/session or otherwise secretly generated hidden tags and you may need
