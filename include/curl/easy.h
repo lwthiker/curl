@@ -50,7 +50,8 @@ CURL_EXTERN void curl_easy_cleanup(CURL *curl);
  * created as a separate API function and not just as another option to
  * curl_easy_setopt().
  */
-CURL_EXTERN CURLcode curl_easy_impersonate(CURL *curl, const char *target);
+CURL_EXTERN CURLcode curl_easy_impersonate(CURL *curl, const char *target,
+                                           int default_headers);
 
 /*
  * NAME curl_easy_getinfo()
