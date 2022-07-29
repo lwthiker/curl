@@ -339,7 +339,8 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
  * Call curl_easy_setopt() with all the needed options as defined in the
  * 'impersonations' array.
  * */
-CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target)
+CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target,
+                               int default_headers)
 {
   int i;
   int ret;
@@ -376,21 +377,23 @@ CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target)
       return ret;
   }
 
-  /* Build a linked list out of the static array of headers. */
-  for(i = 0; i < IMPERSONATE_MAX_HEADERS; i++) {
-    if(opts->http_headers[i]) {
-      headers = curl_slist_append(headers, opts->http_headers[i]);
-      if(!headers) {
-        return CURLE_OUT_OF_MEMORY;
+  if(default_headers) {
+    /* Build a linked list out of the static array of headers. */
+    for(i = 0; i < IMPERSONATE_MAX_HEADERS; i++) {
+      if(opts->http_headers[i]) {
+        headers = curl_slist_append(headers, opts->http_headers[i]);
+        if(!headers) {
+          return CURLE_OUT_OF_MEMORY;
+        }
       }
     }
-  }
 
-  if(headers) {
-    ret = curl_easy_setopt(data, CURLOPT_HTTPBASEHEADER, headers);
-    curl_slist_free_all(headers);
-    if(ret)
-      return ret;
+    if(headers) {
+      ret = curl_easy_setopt(data, CURLOPT_HTTPBASEHEADER, headers);
+      curl_slist_free_all(headers);
+      if(ret)
+        return ret;
+    }
   }
 
   /* Always enable all supported compressions. */
@@ -409,7 +412,8 @@ struct Curl_easy *curl_easy_init(void)
 {
   CURLcode result;
   struct Curl_easy *data;
-  char *target;
+  char *env_target;
+  char *env_headers;
 
   /* Make sure we inited the global SSL stuff */
   global_init_lock();
@@ -438,10 +442,17 @@ struct Curl_easy *curl_easy_init(void)
    * This is a bit hacky but allows seamless integration of libcurl-impersonate
    * without code modifications to the app.
    */
-  target = curl_getenv("CURL_IMPERSONATE");
-  if(target) {
-    result = curl_easy_impersonate(data, target);
-    free(target);
+  env_target = curl_getenv("CURL_IMPERSONATE");
+  if(env_target) {
+    env_headers = curl_getenv("CURL_IMPERSONATE_HEADERS");
+    if(env_headers) {
+      result = curl_easy_impersonate(data, env_target,
+                                     !Curl_strcasecompare(env_headers, "no"));
+      free(env_headers);
+    } else {
+      result = curl_easy_impersonate(data, env_target, true);
+    }
+    free(env_target);
     if(result) {
       Curl_close(&data);
       return NULL;
@@ -1118,7 +1129,8 @@ struct Curl_easy *curl_easy_duphandle(struct Curl_easy *data)
  */
 void curl_easy_reset(struct Curl_easy *data)
 {
-  char *target;
+  char *env_target;
+  char *env_headers;
 
   Curl_free_request_state(data);
 
@@ -1145,10 +1157,21 @@ void curl_easy_reset(struct Curl_easy *data)
   Curl_http_auth_cleanup_digest(data);
 #endif
 
-  target = curl_getenv("CURL_IMPERSONATE");
-  if(target) {
-    curl_easy_impersonate(data, target);
-    free(target);
+  /*
+   * curl-impersonate: Hook into curl_easy_reset() to set the required options
+   * from an environment variable, just like in curl_easy_init().
+   */
+  env_target = curl_getenv("CURL_IMPERSONATE");
+  if(env_target) {
+    env_headers = curl_getenv("CURL_IMPERSONATE_HEADERS");
+    if(env_headers) {
+      curl_easy_impersonate(data, env_target,
+                            !Curl_strcasecompare(env_headers, "no"));
+      free(env_headers);
+    } else {
+      curl_easy_impersonate(data, env_target, true);
+    }
+    free(env_target);
   }
 }
 
