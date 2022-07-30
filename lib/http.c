@@ -2095,6 +2095,7 @@ CURLcode Curl_http_merge_headers(struct Curl_easy *data)
   struct curl_slist *head;
   struct curl_slist *dup = NULL;
   struct curl_slist *new_list = NULL;
+  char *uagent;
 
   if (!data->state.base_headers)
     return CURLE_OK;
@@ -2129,6 +2130,21 @@ CURLcode Curl_http_merge_headers(struct Curl_easy *data)
         found = TRUE;
         break;
       }
+    }
+
+    /* If the user agent was set with CURLOPT_USERAGENT, but not with
+     * CURLOPT_HTTPHEADER, take it from there instead. */
+    if(!found &&
+       strncasecompare(head->data, "User-Agent", prefix_len) &&
+       data->set.str[STRING_USERAGENT] &&
+       *data->set.str[STRING_USERAGENT]) {
+      uagent = aprintf("User-Agent: %s", data->set.str[STRING_USERAGENT]);
+      if(!uagent) {
+        ret = CURLE_OUT_OF_MEMORY;
+        goto fail;
+      }
+      new_list = Curl_slist_append_nodup(new_list, uagent);
+      found = TRUE;
     }
 
     if (!found) {
