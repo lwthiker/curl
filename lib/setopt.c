@@ -2910,6 +2910,9 @@ CURLcode Curl_vsetopt(struct Curl_easy *data, CURLoption option, va_list param)
     result = Curl_setstropt(&data->set.str[STRING_HTTP2_PSEUDO_HEADERS_ORDER],
                             va_arg(param, char *));
     break;
+  case CURLOPT_HTTP2_NO_SERVER_PUSH:
+    data->set.http2_no_server_push = (0 != va_arg(param, long)) ? TRUE : FALSE;
+    break;
 #ifdef USE_UNIX_SOCKETS
   case CURLOPT_UNIX_SOCKET_PATH:
     data->set.abstract_unix_socket = FALSE;

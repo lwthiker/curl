@@ -2175,6 +2175,12 @@ typedef enum {
    */
   CURLOPT(CURLOPT_HTTP2_PSEUDO_HEADERS_ORDER, CURLOPTTYPE_STRINGPOINT, 323),
 
+  /*
+   * curl-impersonate:
+   * Disable HTTP2 server push in the HTTP2 SETTINGS.
+   */
+  CURLOPT(CURLOPT_HTTP2_NO_SERVER_PUSH, CURLOPTTYPE_LONG, 324),
+
   CURLOPT_LASTENTRY /* the last unused */
 } CURLoption;
 

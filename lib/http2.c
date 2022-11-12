@@ -1219,23 +1219,31 @@ static int error_callback(nghttp2_session *session,
 static void populate_settings(struct Curl_easy *data,
                               struct http_conn *httpc)
 {
+  int i = 0;
   nghttp2_settings_entry *iv = httpc->local_settings;
 
   /* curl-impersonate: Align HTTP/2 settings to Chrome's */
-  iv[0].settings_id = NGHTTP2_SETTINGS_HEADER_TABLE_SIZE;
-  iv[0].value = 0x10000;
+  iv[i].settings_id = NGHTTP2_SETTINGS_HEADER_TABLE_SIZE;
+  iv[i].value = 0x10000;
+  i++;
 
-  iv[1].settings_id = NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS;
-  iv[1].value = Curl_multi_max_concurrent_streams(data->multi);
+  if(data->set.http2_no_server_push) {
+    iv[i].settings_id = NGHTTP2_SETTINGS_ENABLE_PUSH;
+    iv[i].value = 0;
+    i++;
+  }
 
-  iv[2].settings_id = NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE;
-  iv[2].value = 0x600000;
+  iv[i].settings_id = NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS;
+  iv[i].value = Curl_multi_max_concurrent_streams(data->multi);
+  i++;
 
-  iv[3].settings_id = NGHTTP2_SETTINGS_MAX_HEADER_LIST_SIZE;
-  iv[3].value = 0x40000;
+  iv[i].settings_id = NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE;
+  iv[i].value = 0x600000;
+  i++;
 
-  // iv[2].settings_id = NGHTTP2_SETTINGS_ENABLE_PUSH;
-  // iv[2].value = data->multi->push_cb != NULL;
+  iv[i].settings_id = NGHTTP2_SETTINGS_MAX_HEADER_LIST_SIZE;
+  iv[i].value = 0x40000;
+  i++;
   
   // curl-impersonate:
   // Up until Chrome 98, there was a randomly chosen setting number in the
@@ -1244,7 +1252,7 @@ static void populate_settings(struct Curl_easy *data,
   // Curl_rand(data, (unsigned char *)&iv[4].settings_id, sizeof(iv[4].settings_id));
   // Curl_rand(data, (unsigned char *)&iv[4].value, sizeof(iv[4].value));
 
-  httpc->local_settings_num = 4;
+  httpc->local_settings_num = i;
 }
 
 void Curl_http2_done(struct Curl_easy *data, bool premature)

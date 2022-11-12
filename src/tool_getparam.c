@@ -287,6 +287,7 @@ static const struct LongShort aliases[]= {
   {"EI", "cert-compression",         ARG_STRING},
   {"EJ", "tls-session-ticket",       ARG_BOOL},
   {"EK", "http2-pseudo-headers-order", ARG_STRING},
+  {"EL", "http2-no-server-push",     ARG_BOOL},
   {"f",  "fail",                     ARG_BOOL},
   {"fa", "fail-early",               ARG_BOOL},
   {"fb", "styled-output",            ARG_BOOL},
@@ -1887,6 +1888,11 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
       case 'K':
         /* --http2-pseudo-headers-order */
         GetStr(&config->http2_pseudo_headers_order, nextarg);
+        break;
+
+      case 'L':
+        /* --http2-no-server-push */
+        config->http2_no_server_push = toggle;
         break;
 
       default: /* unknown flag */

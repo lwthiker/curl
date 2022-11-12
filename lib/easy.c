@@ -442,6 +442,12 @@ CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target,
       return ret;
   }
 
+  if(opts->http2_no_server_push) {
+    ret = curl_easy_setopt(data, CURLOPT_HTTP2_NO_SERVER_PUSH, 1L);
+    if(ret)
+      return ret;
+  }
+
   /* Always enable all supported compressions. */
   ret = curl_easy_setopt(data, CURLOPT_ACCEPT_ENCODING, "");
   if(ret)

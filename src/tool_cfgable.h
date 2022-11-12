@@ -170,6 +170,7 @@ struct OperationConfig {
   char *krblevel;
   char *request_target;
   char *http2_pseudo_headers_order;
+  bool http2_no_server_push;
   long httpversion;
   bool http09_allowed;
   bool nobuffer;

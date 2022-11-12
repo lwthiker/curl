@@ -30,6 +30,7 @@ struct impersonate_opts {
   const char *cert_compression;
   const char *http_headers[IMPERSONATE_MAX_HEADERS];
   const char *http2_pseudo_headers_order;
+  bool http2_no_server_push;
   /* Other TLS options will come here in the future once they are
    * configurable through curl_easy_setopt() */
 };

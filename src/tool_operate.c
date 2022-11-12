@@ -1438,6 +1438,10 @@ static CURLcode single_transfer(struct GlobalConfig *global,
                           CURLOPT_HTTP2_PSEUDO_HEADERS_ORDER,
                           config->http2_pseudo_headers_order);
 
+          if(config->http2_no_server_push)
+            my_setopt(curl, CURLOPT_HTTP2_NO_SERVER_PUSH,
+                      config->http2_no_server_push ? 1L : 0L);
+
         } /* (built_in_protos & CURLPROTO_HTTP) */
 
         my_setopt_str(curl, CURLOPT_FTPPORT, config->ftpport);

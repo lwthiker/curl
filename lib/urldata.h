@@ -1933,6 +1933,9 @@ struct UserDefined {
   BIT(doh_verifystatus);   /* DoH certificate status verification */
 #endif
   BIT(http09_allowed); /* allow HTTP/0.9 responses */
+#ifdef USE_HTTP2
+  BIT(http2_no_server_push);    /* Disable HTTP2 server push */
+#endif
 };
 
 struct Names {
