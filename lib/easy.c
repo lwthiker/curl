@@ -407,6 +407,12 @@ CURLcode curl_easy_impersonate(struct Curl_easy *data, const char *target,
   if(ret)
     return ret;
 
+  if(opts->tls_permute_extensions) {
+    ret = curl_easy_setopt(data, CURLOPT_SSL_PERMUTE_EXTENSIONS, 1);
+    if(ret)
+      return ret;
+  }
+
   if(opts->cert_compression) {
     ret = curl_easy_setopt(data,
                            CURLOPT_SSL_CERT_COMPRESSION,

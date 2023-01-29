@@ -1863,6 +1863,10 @@ static CURLcode single_transfer(struct GlobalConfig *global,
           my_setopt_str(curl, CURLOPT_PROXY_TLS13_CIPHERS,
                         config->proxy_cipher13_list);
 
+          /* curl-impersonate */
+        if(config->ssl_permute_extensions)
+            my_setopt(curl, CURLOPT_SSL_PERMUTE_EXTENSIONS, 1L);
+
         /* new in libcurl 7.9.2: */
         if(config->disable_epsv)
           /* disable it */

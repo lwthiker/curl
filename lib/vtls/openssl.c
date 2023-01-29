@@ -3237,6 +3237,14 @@ static CURLcode ossl_connect_step1(struct Curl_easy *data,
   /* Enable TLS GREASE. */
   SSL_CTX_set_grease_enabled(backend->ctx, 1);
 
+  /*
+   * curl-impersonate: Enable TLS extension permutation, enabled by default
+   * since Chrome 110.
+   */
+  if(conn->bits.tls_permute_extensions) {
+    SSL_CTX_set_permute_extensions(backend->ctx, 1);
+  }
+
   if(SSL_CONN_CONFIG(cert_compression) &&
      add_cert_compression(data,
                           backend->ctx,

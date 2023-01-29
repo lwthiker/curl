@@ -4016,6 +4016,10 @@ static CURLcode create_conn(struct Curl_easy *data,
     if(data->set.ssl_enable_ticket)
         conn->bits.tls_enable_ticket = TRUE;
 
+    /* curl-impersonate: Add the TLS extension permutation. */
+    if(data->set.ssl_permute_extensions)
+        conn->bits.tls_permute_extensions = TRUE;
+
     if(waitpipe)
       /* There is a connection that *might* become usable for multiplexing
          "soon", and we wait for that */

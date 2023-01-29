@@ -288,6 +288,7 @@ static const struct LongShort aliases[]= {
   {"EJ", "tls-session-ticket",       ARG_BOOL},
   {"EK", "http2-pseudo-headers-order", ARG_STRING},
   {"EL", "http2-no-server-push",     ARG_BOOL},
+  {"EM", "tls-permute-extensions",     ARG_BOOL},
   {"f",  "fail",                     ARG_BOOL},
   {"fa", "fail-early",               ARG_BOOL},
   {"fb", "styled-output",            ARG_BOOL},
@@ -1894,7 +1895,10 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
         /* --http2-no-server-push */
         config->http2_no_server_push = toggle;
         break;
-
+      case 'M':
+          /* --tls-permute-extensions */
+          config->ssl_permute_extensions = toggle;
+          break;
       default: /* unknown flag */
         return PARAM_OPTION_UNKNOWN;
       }

@@ -513,6 +513,7 @@ struct ConnectBits {
   BIT(tls_enable_alpn); /* TLS ALPN extension? */
   BIT(tls_enable_alps); /* TLS ALPS extension? */
   BIT(tls_enable_ticket); /* TLS session ticket extension? */
+  BIT(tls_permute_extensions); /* TLS extension permutations */
   BIT(connect_only);
 #ifndef CURL_DISABLE_DOH
   BIT(doh);
@@ -1915,6 +1916,7 @@ struct UserDefined {
   BIT(ssl_enable_alpn);/* TLS ALPN extension? */
   BIT(ssl_enable_alps);/* TLS ALPS extension? */
   BIT(ssl_enable_ticket); /* TLS session ticket extension */
+  BIT(ssl_permute_extensions); /* TLS Permute extensions */
   BIT(path_as_is);     /* allow dotdots? */
   BIT(pipewait);       /* wait for multiplex status before starting a new
                           connection */

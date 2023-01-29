@@ -2181,6 +2181,12 @@ typedef enum {
    */
   CURLOPT(CURLOPT_HTTP2_NO_SERVER_PUSH, CURLOPTTYPE_LONG, 324),
 
+  /* 
+   * curl-impersonate: Whether to enable Boringssl permute extensions
+   * See https://commondatastorage.googleapis.com/chromium-boringssl-docs/ssl.h.html#SSL_set_permute_extensions.
+   */
+  CURLOPT(CURLOPT_SSL_PERMUTE_EXTENSIONS, CURLOPTTYPE_LONG, 325),
+
   CURLOPT_LASTENTRY /* the last unused */
 } CURLoption;
 

@@ -200,6 +200,7 @@ struct OperationConfig {
   struct curl_slist *prequote;
   long ssl_version;
   long ssl_version_max;
+  bool ssl_permute_extensions;
   long proxy_ssl_version;
   long ip_version;
   long create_file_mode; /* CURLOPT_NEW_FILE_PERMS */
