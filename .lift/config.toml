@@ -1,7 +1,8 @@
-# Copyright (C) 2000 - 2022 Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # SPDX-License-Identifier: curl
 
-ignoreRules = [ "DEAD_STORE" ]
+ignoreRules = [ "DEAD_STORE", "subprocess_without_shell_equals_true" ]
+ignoreFiles = [ "tests/http/**" ]
 build = "make"
 setup = ".lift/setup.sh"
