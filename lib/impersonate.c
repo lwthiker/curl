@@ -1,5 +1,6 @@
 #include "curl_setup.h"
 
+#include <curl/curl.h>
 #include "impersonate.h"
 
 const struct impersonate_opts impersonations[] = {
