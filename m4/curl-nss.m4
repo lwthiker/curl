@@ -106,7 +106,7 @@ if test "x$OPT_NSS" != xno; then
 
       case $host_cpu in
         arm)
-          addlib="$addlib -larmv8_c_lib"
+          addlib="$addlib -larmv8_c_lib -lgcm-aes-arm32-neon_c_lib"
           ;;
         aarch64)
           addlib="$addlib -larmv8_c_lib -lgcm-aes-aarch64_c_lib"
