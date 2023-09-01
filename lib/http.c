@@ -4950,8 +4950,17 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
   for(i = 0; !result && i < Curl_dynhds_count(&req->headers); ++i) {
     e = Curl_dynhds_getn(&req->headers, i);
     if(!h2_non_field(e->name, e->namelen)) {
+      /* curl-impersonate:
+       * Some HTTP/2 servers reject 'te' header value that is not lowercase (e.g. 'Trailers).
+       * Convert to lowercase explicitly.
+       */
+      if(e->namelen == 2 && strcasecompare(e->name, "te"))
+        Curl_dynhds_set_opt(h2_headers, DYNHDS_OPT_LOWERCASE_VAL);
+
       result = Curl_dynhds_add(h2_headers, e->name, e->namelen,
                                e->value, e->valuelen);
+
+      Curl_dynhds_del_opt(h2_headers, DYNHDS_OPT_LOWERCASE_VAL);
     }
   }
 

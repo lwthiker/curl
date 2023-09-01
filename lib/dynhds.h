@@ -53,6 +53,7 @@ struct dynhds {
 
 #define DYNHDS_OPT_NONE          (0)
 #define DYNHDS_OPT_LOWERCASE     (1 << 0)
+#define DYNHDS_OPT_LOWERCASE_VAL (1 << 1)
 
 /**
  * Init for use on first time or after a reset.
@@ -82,6 +83,8 @@ size_t Curl_dynhds_count(struct dynhds *dynhds);
  * This will not have an effect on already existing headers.
  */
 void Curl_dynhds_set_opts(struct dynhds *dynhds, int opts);
+void Curl_dynhds_set_opt(struct dynhds *dynhds, int opt);
+void Curl_dynhds_del_opt(struct dynhds *dynhds, int opt);
 
 /**
  * Return the n-th header entry or NULL if it does not exist.

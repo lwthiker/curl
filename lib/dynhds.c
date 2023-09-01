@@ -52,6 +52,8 @@ entry_new(const char *name, size_t namelen,
   e->valuelen = valuelen;
   if(opts & DYNHDS_OPT_LOWERCASE)
     Curl_strntolower(e->name, e->name, e->namelen);
+  if(opts & DYNHDS_OPT_LOWERCASE_VAL)
+    Curl_strntolower(e->value, e->value, e->valuelen);
   return e;
 }
 
@@ -132,6 +134,16 @@ size_t Curl_dynhds_count(struct dynhds *dynhds)
 void Curl_dynhds_set_opts(struct dynhds *dynhds, int opts)
 {
   dynhds->opts = opts;
+}
+
+void Curl_dynhds_set_opt(struct dynhds *dynhds, int opt)
+{
+  dynhds->opts |= opt;
+}
+
+void Curl_dynhds_del_opt(struct dynhds *dynhds, int opt)
+{
+  dynhds->opts &= ~opt;
 }
 
 struct dynhds_entry *Curl_dynhds_getn(struct dynhds *dynhds, size_t n)
