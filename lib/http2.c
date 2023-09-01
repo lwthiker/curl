@@ -1694,18 +1694,25 @@ out:
   return rv;
 }
 
+
+/*
+ * curl-impersonate: Set the HTTP/2 stream weight to the one used by Firefox
+ * by default to fetch html resources.
+ */
+#define FIREFOX_DEFAULT_STREAM_WEIGHT  (42)
+
 static int sweight_wanted(const struct Curl_easy *data)
 {
   /* 0 weight is not set by user and we take the nghttp2 default one */
   return data->set.priority.weight?
-    data->set.priority.weight : NGHTTP2_DEFAULT_WEIGHT;
+    data->set.priority.weight : FIREFOX_DEFAULT_STREAM_WEIGHT;
 }
 
 static int sweight_in_effect(const struct Curl_easy *data)
 {
   /* 0 weight is not set by user and we take the nghttp2 default one */
   return data->state.priority.weight?
-    data->state.priority.weight : NGHTTP2_DEFAULT_WEIGHT;
+    data->state.priority.weight : FIREFOX_DEFAULT_STREAM_WEIGHT;
 }
 
 /*

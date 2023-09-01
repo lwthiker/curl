@@ -139,7 +139,7 @@ static const struct alpn_spec ALPN_SPEC_H11 = {
 };
 #ifdef USE_HTTP2
 static const struct alpn_spec ALPN_SPEC_H2_H11 = {
-  { ALPN_H2, ALPN_HTTP_1_1 }, 2
+  { ALPN_HTTP_1_1, ALPN_H2 }, 2
 };
 #endif
 
