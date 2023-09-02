@@ -1658,7 +1658,7 @@ static int sweight_in_effect(const struct Curl_easy *data)
 {
   /* 0 weight is not set by user and we take the nghttp2 default one */
   return data->state.priority.weight?
-    data->state.priority.weight : CHROME_DEFAULT_STREAM_WEIGHT;
+    data->state.priority.weight : NGHTTP2_DEFAULT_WEIGHT;
 }
 
 /*
@@ -1673,9 +1673,11 @@ static void h2_pri_spec(struct Curl_easy *data,
   struct Curl_data_priority *prio = &data->set.priority;
   struct stream_ctx *depstream = H2_STREAM_CTX(prio->parent);
   int32_t depstream_id = depstream? depstream->id:0;
+  /* curl-impersonate: Set stream exclusive flag to true. */
+  int exclusive = 1;
   nghttp2_priority_spec_init(pri_spec, depstream_id,
                              sweight_wanted(data),
-                             data->set.priority.exclusive);
+                             exclusive);
   data->state.priority = *prio;
 }
 
@@ -1692,20 +1694,24 @@ static CURLcode h2_progress_egress(struct Curl_cfilter *cf,
   struct stream_ctx *stream = H2_STREAM_CTX(data);
   int rv = 0;
 
+  /* curl-impersonate: Check if stream exclusive flag is true. */
   if((sweight_wanted(data) != sweight_in_effect(data)) ||
-     (data->set.priority.exclusive != data->state.priority.exclusive) ||
-     (data->set.priority.parent != data->state.priority.parent) ) {
+     (data->set.priority.exclusive != 1) ||
+     (data->set.priority.parent != data->state.priority.parent)) {
     /* send new weight and/or dependency */
     nghttp2_priority_spec pri_spec;
 
     h2_pri_spec(data, &pri_spec);
-    DEBUGF(LOG_CF(data, cf, "[h2sid=%d] Queuing PRIORITY",
-                  stream->id));
-    DEBUGASSERT(stream->id != -1);
-    rv = nghttp2_submit_priority(ctx->h2, NGHTTP2_FLAG_NONE,
-                                 stream->id, &pri_spec);
-    if(rv)
-      goto out;
+    /* curl-impersonate: Don't send PRIORITY frames for main stream. */
+    if(stream->id != 1) {
+      DEBUGF(LOG_CF(data, cf, "[h2sid=%d] Queuing PRIORITY",
+                    stream->id));
+      DEBUGASSERT(stream->id != -1);
+      rv = nghttp2_submit_priority(ctx->h2, NGHTTP2_FLAG_NONE,
+                                   stream->id, &pri_spec);
+      if(rv)
+        goto out;
+    }
   }
 
   while(!rv && nghttp2_session_want_write(ctx->h2))
