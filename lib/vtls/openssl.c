@@ -79,6 +79,7 @@
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
 #include <openssl/pkcs12.h>
+#include <openssl/pool.h>
 
 #ifdef HAVE_LIBZ
 #include <zlib.h>
