@@ -4894,12 +4894,41 @@ static bool h2_non_field(const char *name, size_t namelen)
   return FALSE;
 }
 
+/*
+ * curl-impersonate:
+ * Determine the position of HTTP/2 pseudo headers.
+ * The pseudo headers ":method", ":path", ":scheme", ":authority"
+ * are sent in different order by different browsers. An important part of the
+ * impersonation is ordering them like the browser does.
+ */
+static CURLcode h2_check_pseudo_header_order(const char *order)
+{
+  if(strlen(order) != 4)
+    return CURLE_BAD_FUNCTION_ARGUMENT;
+
+  // :method should always be first
+  if(order[0] != 'm')
+    return CURLE_BAD_FUNCTION_ARGUMENT;
+
+  // All pseudo-headers must be present
+  if(!strchr(order, 'm') ||
+     !strchr(order, 'a') ||
+     !strchr(order, 's') ||
+     !strchr(order, 'p'))
+    return CURLE_BAD_FUNCTION_ARGUMENT;
+
+  return CURLE_OK;
+}
+
 CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
                              struct httpreq *req, struct Curl_easy *data)
 {
   const char *scheme = NULL, *authority = NULL;
   struct dynhds_entry *e;
   size_t i;
+  // Use the Chrome ordering by default:
+  // :method, :authority, :scheme, :path
+  char *order = "masp";
   CURLcode result;
 
   DEBUGASSERT(req);
@@ -4933,20 +4962,42 @@ CURLcode Curl_http_req_to_h2(struct dynhds *h2_headers,
 
   Curl_dynhds_reset(h2_headers);
   Curl_dynhds_set_opts(h2_headers, DYNHDS_OPT_LOWERCASE);
-  result = Curl_dynhds_add(h2_headers, STRCONST(HTTP_PSEUDO_METHOD),
-                           req->method, strlen(req->method));
-  if(!result && scheme) {
-    result = Curl_dynhds_add(h2_headers, STRCONST(HTTP_PSEUDO_SCHEME),
-                             scheme, strlen(scheme));
+
+  /* curl-impersonate: order of pseudo headers is different from the default */
+  if(data->set.str[STRING_HTTP2_PSEUDO_HEADERS_ORDER]) {
+    order = data->set.str[STRING_HTTP2_PSEUDO_HEADERS_ORDER];
   }
-  if(!result && authority) {
-    result = Curl_dynhds_add(h2_headers, STRCONST(HTTP_PSEUDO_AUTHORITY),
-                             authority, strlen(authority));
+
+  result = h2_check_pseudo_header_order(order);
+
+  /* curl-impersonate: add http2 pseudo headers according to the specified order. */
+  for(i = 0; !result && i < strlen(order); ++i) {
+    switch(order[i]) {
+      case 'm':
+        result = Curl_dynhds_add(h2_headers, STRCONST(HTTP_PSEUDO_METHOD),
+                                 req->method, strlen(req->method));
+        break;
+      case 'a':
+        if(authority) {
+          result = Curl_dynhds_add(h2_headers, STRCONST(HTTP_PSEUDO_AUTHORITY),
+                                   authority, strlen(authority));
+        }
+        break;
+      case 's':
+        if(scheme) {
+          result = Curl_dynhds_add(h2_headers, STRCONST(HTTP_PSEUDO_SCHEME),
+                                   scheme, strlen(scheme));
+        }
+        break;
+      case 'p':
+        if(req->path) {
+          result = Curl_dynhds_add(h2_headers, STRCONST(HTTP_PSEUDO_PATH),
+                                   req->path, strlen(req->path));
+        }
+        break;
+    }
   }
-  if(!result && req->path) {
-    result = Curl_dynhds_add(h2_headers, STRCONST(HTTP_PSEUDO_PATH),
-                             req->path, strlen(req->path));
-  }
+
   for(i = 0; !result && i < Curl_dynhds_count(&req->headers); ++i) {
     e = Curl_dynhds_getn(&req->headers, i);
     if(!h2_non_field(e->name, e->namelen)) {
