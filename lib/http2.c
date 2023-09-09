@@ -1695,9 +1695,10 @@ static CURLcode h2_progress_egress(struct Curl_cfilter *cf,
   int rv = 0;
 
   /* curl-impersonate: Check if stream exclusive flag is true. */
-  if((sweight_wanted(data) != sweight_in_effect(data)) ||
+  if(stream && stream->id > 0 &&
+     ((sweight_wanted(data) != sweight_in_effect(data)) ||
      (data->set.priority.exclusive != 1) ||
-     (data->set.priority.parent != data->state.priority.parent)) {
+     (data->set.priority.parent != data->state.priority.parent))) {
     /* send new weight and/or dependency */
     nghttp2_priority_spec pri_spec;
 
